@@ -19,6 +19,7 @@ export default function LoginPage() {
     setLoading(true);
     
     try {
+      console.log("Memulai pencarian user...");
       const { data, error } = await supabase
         .from("User")
         .select("*")
@@ -27,28 +28,33 @@ export default function LoginPage() {
         .single();
     
       if (error || !data) {
+        console.log("User tidak ditemukan atau password salah:", error);
         setError("Email atau password salah.");
         setLoading(false);
         return;
       }
     
-      // Simpan user ke localStorage
+      console.log("User ditemukan:", data);
       localStorage.setItem("user", JSON.stringify(data));
     
       if (data.user_role === "Admin") {
+        console.log("Redirecting to /dashboard...");
         router.push("/dashboard");
+        return; 
       } else if (data.user_role === "Operator") {
+        console.log("Redirecting to /operator...");
         router.push("/operator");
+        return;
       } else {
         setError("Role tidak valid.");
+        setLoading(false);
       }
     
     } catch (err) {
-      console.error(err);
+      console.error("Terjadi error sistem:", err);
       setError("Terjadi kesalahan.");
+      setLoading(false);
     }
-  
-    setLoading(false);
   };
 
   return (
