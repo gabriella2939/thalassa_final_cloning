@@ -5,10 +5,10 @@ import { createClient } from '@/utils/supabase/client';
 const supabase = createClient();
 
 interface Profile {
-  id: string;
-  name: string;
-  email: string;
-  role: 'Admin' | 'Operator';
+  user_id: number;
+  user_name: string;
+  user_email: string;
+  user_role: 'Admin' | 'Operator';
 }
 
 export default function UserManagementComponent() {
@@ -26,55 +26,60 @@ export default function UserManagementComponent() {
   const [actionLoading, setActionLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  const fetchCurrentUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
-    if (data) setCurrentUser(data);
-  };
+  // const fetchCurrentUser = async () => {
+  //   const { data: { user } } = await supabase.auth.getUser();
+  //   if (!user) return;
+  //   const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+  //   if (data) setCurrentUser(data);
+  // };
 
   const fetchUsers = async () => {
     setLoading(true);
-    const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: true });
-    if (!error) setUsers(data || []);
+    const { data, error } = await supabase
+      .from('User')
+      .select('*')
+      .order('user_id', { ascending: true });
+
+    if (!error) {
+      setUsers(data || []);
+    }
+
+  if (!error) setUsers(data || []);
     setLoading(false);
   };
 
   useEffect(() => {
-    fetchCurrentUser();
     fetchUsers();
   }, []);
 
   const handleAddUser = async () => {
-    if (!formData.name || !formData.email || !formData.password) {
-      setErrorMsg('Semua field wajib diisi.');
+    const { error } = await supabase
+      .from('User')
+      .insert([
+        {
+          user_name: formData.name,
+          user_email: formData.email,
+          user_password: formData.password,
+          user_role: formData.role,
+        },
+      ]);
+
+    if (error) {
+      setErrorMsg(error.message);
       return;
     }
-    setActionLoading(true);
-    setErrorMsg('');
-    const res = await fetch('/api/admin/create-user', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(formData),
-    });
-    const result = await res.json();
-    if (!res.ok) {
-      setErrorMsg(result.error || 'Gagal menambah user.');
-    } else {
-      setShowAddModal(false);
-      setFormData({ name: '', email: '', role: 'Operator', password: '' });
-      fetchUsers();
-    }
-    setActionLoading(false);
+
+    fetchUsers();
+    setShowAddModal(false);
   };
 
   const handleEditUser = async () => {
     if (!selectedUser || !formData.name) return;
     setActionLoading(true);
     await supabase.from('profiles').update({
-      name: formData.name,
-      role: formData.role,
-    }).eq('id', selectedUser.id);
+      user_name: formData.name,
+      user_role: formData.role,
+    }).eq('user_id', selectedUser.user_id);
     setShowEditModal(false);
     fetchUsers();
     setActionLoading(false);
@@ -86,7 +91,7 @@ export default function UserManagementComponent() {
     await fetch('/api/admin/delete-user', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: selectedUser.id }),
+      body: JSON.stringify({ userId: selectedUser.user_id }),
     });
     setShowDeleteModal(false);
     fetchUsers();
@@ -103,7 +108,7 @@ export default function UserManagementComponent() {
     await fetch('/api/admin/change-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: selectedUser?.id, password: newPassword }),
+      body: JSON.stringify({ userId: selectedUser?.user_id, password: newPassword }),
     });
     setShowPasswordModal(false);
     setNewPassword('');
@@ -113,14 +118,24 @@ export default function UserManagementComponent() {
 
   const openEdit = (user: Profile) => {
     setSelectedUser(user);
-    setFormData({ name: user.name, email: user.email, role: user.role, password: '' });
+    setFormData({ 
+      name: user.user_name,
+      email: user.user_email,
+      role: user.user_role,
+      password: '',
+     });
     setErrorMsg('');
     setShowEditModal(true);
   };
 
   const totalUsers = users.length;
-  const admins = users.filter(u => u.role === 'Admin').length;
-  const operators = users.filter(u => u.role === 'Operator').length;
+  const admins = users.filter(
+    u => u.user_role === 'Admin'
+  ).length;
+
+  const operators = users.filter(
+    u => u.user_role === 'Operator'
+  ).length;
 
   return (
     <div className="animate-fade-in text-white w-full font-sans">
@@ -187,27 +202,27 @@ export default function UserManagementComponent() {
               </thead>
               <tbody>
                 {users.map((user) => (
-                  <tr key={user.id} className="border-b border-gray-800/40 hover:bg-[#12101a] transition-colors">
+                  <tr key={user.user_id} className="border-b border-gray-800/40 hover:bg-[#12101a] transition-colors">
                     <td className="p-5">
                       <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center border ${user.role === 'Admin' ? 'bg-purple-500/20 border-purple-500/50 text-purple-300' : 'bg-blue-500/20 border-blue-500/50 text-blue-300'}`}>
-                          {user.role === 'Admin' ? (
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center border ${user.user_role === 'Admin' ? 'bg-purple-500/20 border-purple-500/50 text-purple-300' : 'bg-blue-500/20 border-blue-500/50 text-blue-300'}`}>
+                          {user.user_role === 'Admin' ? (
                             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
                           ) : (
                             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                           )}
                         </div>
-                        <span className="font-medium text-sm text-gray-200">{user.name}</span>
-                        {user.id === currentUser?.id && (
+                        <span className="font-medium text-sm text-gray-200">{user.user_name}</span>
+                        {user.user_id === currentUser?.user_id && (
                           <span className="text-[9px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/30">You</span>
                         )}
                       </div>
                     </td>
-                    <td className="p-5 text-sm text-gray-400">{user.email}</td>
+                    <td className="p-5 text-sm text-gray-400">{user.user_email}</td>
                     <td className="p-5">
                       <span className={`px-3 py-1 rounded-full text-[10px] font-bold tracking-wider font-mono border ${
-                        user.role === 'Admin' ? 'bg-purple-500/10 text-purple-400 border-purple-500/30' : 'bg-blue-500/10 text-blue-400 border-blue-500/30'
-                      }`}>{user.role}</span>
+                        user.user_role === 'Admin' ? 'bg-purple-500/10 text-purple-400 border-purple-500/30' : 'bg-blue-500/10 text-blue-400 border-blue-500/30'
+                      }`}>{user.user_role}</span>
                     </td>
                     <td className="p-5 text-right">
                       <div className="flex justify-end gap-2">
@@ -217,7 +232,7 @@ export default function UserManagementComponent() {
                         <button onClick={() => { setSelectedUser(user); setErrorMsg(''); setShowPasswordModal(true); }} className="p-2 rounded-lg bg-[#121016] border border-gray-800 hover:border-gray-600 text-gray-400 hover:text-white transition-colors">
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
                         </button>
-                        {user.id !== currentUser?.id && (
+                        {user.user_id !== currentUser?.user_id && (
                           <button onClick={() => { setSelectedUser(user); setShowDeleteModal(true); }} className="p-2 rounded-lg bg-[#121016] border border-gray-800 hover:border-red-500/50 hover:text-red-400 text-gray-400 transition-colors">
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                           </button>
@@ -318,7 +333,7 @@ export default function UserManagementComponent() {
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
             <h2 className="text-xl font-bold text-red-400 mb-4">Confirm Delete</h2>
-            <p className="text-gray-300 text-sm mb-8">Hapus user <span className="text-white font-bold">{selectedUser.name}</span>? Tindakan ini tidak bisa dibatalkan.</p>
+            <p className="text-gray-300 text-sm mb-8">Hapus user <span className="text-white font-bold">{selectedUser.user_name}</span>? Tindakan ini tidak bisa dibatalkan.</p>
             <div className="flex gap-3">
               <button onClick={() => setShowDeleteModal(false)} className="flex-1 py-3 rounded-xl bg-[#2a2b36] text-white text-sm">Cancel</button>
               <button onClick={handleDeleteUser} disabled={actionLoading} className="flex-1 py-3 rounded-xl bg-[#dc2626] hover:bg-[#b91c1c] text-white font-medium text-sm disabled:opacity-50">
@@ -337,7 +352,7 @@ export default function UserManagementComponent() {
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
             <h2 className="text-xl font-bold text-purple-400 mb-2">Change Password</h2>
-            <p className="text-xs text-gray-500 mb-4">User: <span className="text-gray-300">{selectedUser.name}</span></p>
+            <p className="text-xs text-gray-500 mb-4">User: <span className="text-gray-300">{selectedUser.user_name}</span></p>
             {errorMsg && <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs">{errorMsg}</div>}
             <div className="space-y-4">
               <div>

@@ -17,28 +17,38 @@ export default function LoginPage() {
     e.preventDefault();
     setError("");
     setLoading(true);
-
+    
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) {
-        setError(error.message);
+      const { data, error } = await supabase
+        .from("User")
+        .select("*")
+        .eq("user_email", email)
+        .eq("user_password", password)
+        .single();
+    
+      if (error || !data) {
+        setError("Email atau password salah.");
         setLoading(false);
         return;
       }
-
-      if (data.user?.email?.includes('admin')) {
-        window.location.href = "/dashboard";
+    
+      // Simpan user ke localStorage
+      localStorage.setItem("user", JSON.stringify(data));
+    
+      if (data.user_role === "Admin") {
+        router.push("/dashboard");
+      } else if (data.user_role === "Operator") {
+        router.push("/operator");
       } else {
-        window.location.href = "/operator";
+        setError("Role tidak valid.");
       }
-    } catch (err: any) {
-      setError("An unexpected error occurred");
-      setLoading(false);
+    
+    } catch (err) {
+      console.error(err);
+      setError("Terjadi kesalahan.");
     }
+  
+    setLoading(false);
   };
 
   return (

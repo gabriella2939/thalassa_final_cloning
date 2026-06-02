@@ -349,8 +349,8 @@ export default function DashboardPage() {
           </button>
           <button
             className="px-6 py-2.5 rounded-xl border border-red-500/30 bg-[#1f1015] hover:bg-[#28151b] text-red-400 transition-colors shadow-[0_4px_15px_rgba(239,68,68,0.1)] uppercase"
-            onClick={async () => {
-              await supabase.auth.signOut();
+            onClick={() => {
+              localStorage.removeItem("user");
               router.push("/login");
             }}
           >
