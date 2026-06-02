@@ -27,12 +27,9 @@ export default function UserManagementComponent() {
   const [errorMsg, setErrorMsg] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
 
-  // const fetchCurrentUser = async () => {
-  //   const { data: { user } } = await supabase.auth.getUser();
-  //   if (!user) return;
-  //   const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
-  //   if (data) setCurrentUser(data);
-  // };
+  // PAGINATION STATES & CONSTANTS
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 5;
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -44,14 +41,17 @@ export default function UserManagementComponent() {
     if (!error) {
       setUsers(data || []);
     }
-
-  if (!error) setUsers(data || []);
     setLoading(false);
   };
 
   useEffect(() => {
     fetchUsers();
   }, []);
+
+  // Reset ke halaman 1 saat user mengetik di kolom pencarian
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   const handleAddUser = async () => {
     const { error } = await supabase
@@ -79,7 +79,7 @@ export default function UserManagementComponent() {
     setActionLoading(true);
     
     const { error } = await supabase
-      .from('User') // Sebelumnya 'profiles', diubah menjadi 'User'
+      .from('User')
       .update({
         user_name: formData.name,
         user_role: formData.role,
@@ -88,7 +88,7 @@ export default function UserManagementComponent() {
 
     if (error) {
       console.error("Error saat edit:", error);
-      setErrorMsg(error.message); // Menampilkan pesan error jika gagal
+      setErrorMsg(error.message);
     } else {
       setShowEditModal(false);
       fetchUsers();
@@ -123,7 +123,6 @@ export default function UserManagementComponent() {
     setActionLoading(true);
     setErrorMsg('');
 
-    // Langsung update ke tabel 'User' di database Supabase
     const { error } = await supabase
       .from('User')
       .update({ user_password: newPassword })
@@ -136,7 +135,7 @@ export default function UserManagementComponent() {
       setShowPasswordModal(false);
       setNewPassword('');
       setConfirmPassword('');
-      fetchUsers(); // Memanggil ulang data agar tabel di layar langsung ter-update
+      fetchUsers();
     }
     setActionLoading(false);
   };
@@ -154,18 +153,20 @@ export default function UserManagementComponent() {
   };
 
   const totalUsers = users.length;
-  const admins = users.filter(
-    u => u.user_role === 'Admin'
-  ).length;
-
-  const operators = users.filter(
-    u => u.user_role === 'Operator'
-  ).length;
+  const admins = users.filter(u => u.user_role === 'Admin').length;
+  const operators = users.filter(u => u.user_role === 'Operator').length;
 
   // Filter users berdasarkan nama atau email
   const filteredUsers = users.filter((user) =>
     user.user_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.user_email.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // PAGINATION LOGIC
+  const totalPages = Math.ceil(filteredUsers.length / ITEMS_PER_PAGE);
+  const paginatedUsers = filteredUsers.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
   );
 
   return (
@@ -212,8 +213,7 @@ export default function UserManagementComponent() {
         ))}
       </div>
 
-      {/* TABLE */}
-      {/* TABLE */}
+      {/* TABLE CONTAINER */}
       <div className="bg-[#0b0a0e] border border-gray-800/60 rounded-2xl overflow-hidden">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-5 border-b border-gray-800/60 gap-4 sm:gap-0">
           
@@ -223,9 +223,8 @@ export default function UserManagementComponent() {
               System Users
             </h3>
             
-            {/* SEARCH CONTAINER (Icon di luar box) */}
+            {/* SEARCH CONTAINER */}
             <div className="flex items-center gap-3 w-full sm:w-auto">
-              {/* Icon Search di luar */}
               <svg 
                 className="w-5 h-5 text-gray-400 flex-shrink-0" 
                 fill="none" 
@@ -235,7 +234,6 @@ export default function UserManagementComponent() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
               
-              {/* Input Box yang Proporsional */}
               <input
                 type="text"
                 placeholder="Search name or email..."
@@ -255,60 +253,116 @@ export default function UserManagementComponent() {
         {loading ? (
           <div className="text-gray-500 text-center py-10">Loading...</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-gray-800/60 text-[10px] font-bold tracking-widest text-purple-400 uppercase font-mono bg-[#0d0a14]">
-                  <th className="p-5">Name</th>
-                  <th className="p-5">Email</th>
-                  <th className="p-5">Role</th>
-                  <th className="p-5 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredUsers.map((user) => (
-                  <tr key={user.user_id} className="border-b border-gray-800/40 hover:bg-[#12101a] transition-colors">
-                    <td className="p-5">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center border ${user.user_role === 'Admin' ? 'bg-purple-500/20 border-purple-500/50 text-purple-300' : 'bg-blue-500/20 border-blue-500/50 text-blue-300'}`}>
-                          {user.user_role === 'Admin' ? (
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-                          ) : (
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-gray-800/60 text-[10px] font-bold tracking-widest text-purple-400 uppercase font-mono bg-[#0d0a14]">
+                    <th className="p-5">Name</th>
+                    <th className="p-5">Email</th>
+                    <th className="p-5">Role</th>
+                    <th className="p-5 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedUsers.map((user) => (
+                    <tr key={user.user_id} className="border-b border-gray-800/40 hover:bg-[#12101a] transition-colors">
+                      <td className="p-5">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center border ${user.user_role === 'Admin' ? 'bg-purple-500/20 border-purple-500/50 text-purple-300' : 'bg-blue-500/20 border-blue-500/50 text-blue-300'}`}>
+                            {user.user_role === 'Admin' ? (
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                            ) : (
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                            )}
+                          </div>
+                          <span className="font-medium text-sm text-gray-200">{user.user_name}</span>
+                          {user.user_id === currentUser?.user_id && (
+                            <span className="text-[9px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/30">You</span>
                           )}
                         </div>
-                        <span className="font-medium text-sm text-gray-200">{user.user_name}</span>
-                        {user.user_id === currentUser?.user_id && (
-                          <span className="text-[9px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/30">You</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="p-5 text-sm text-gray-400">{user.user_email}</td>
-                    <td className="p-5">
-                      <span className={`px-3 py-1 rounded-full text-[10px] font-bold tracking-wider font-mono border ${
-                        user.user_role === 'Admin' ? 'bg-purple-500/10 text-purple-400 border-purple-500/30' : 'bg-blue-500/10 text-blue-400 border-blue-500/30'
-                      }`}>{user.user_role}</span>
-                    </td>
-                    <td className="p-5 text-right">
-                      <div className="flex justify-end gap-2">
-                        <button onClick={() => openEdit(user)} className="p-2 rounded-lg bg-[#121016] border border-gray-800 hover:border-gray-600 text-gray-400 hover:text-white transition-colors">
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                        </button>
-                        <button onClick={() => { setSelectedUser(user); setErrorMsg(''); setShowPasswordModal(true); }} className="p-2 rounded-lg bg-[#121016] border border-gray-800 hover:border-gray-600 text-gray-400 hover:text-white transition-colors">
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
-                        </button>
-                        {user.user_id !== currentUser?.user_id && (
-                          <button onClick={() => { setSelectedUser(user); setShowDeleteModal(true); }} className="p-2 rounded-lg bg-[#121016] border border-gray-800 hover:border-red-500/50 hover:text-red-400 text-gray-400 transition-colors">
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                      </td>
+                      <td className="p-5 text-sm text-gray-400">{user.user_email}</td>
+                      <td className="p-5">
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-bold tracking-wider font-mono border ${
+                          user.user_role === 'Admin' ? 'bg-purple-500/10 text-purple-400 border-purple-500/30' : 'bg-blue-500/10 text-blue-400 border-blue-500/30'
+                        }`}>{user.user_role}</span>
+                      </td>
+                      <td className="p-5 text-right">
+                        <div className="flex justify-end gap-2">
+                          <button onClick={() => openEdit(user)} className="p-2 rounded-lg bg-[#121016] border border-gray-800 hover:border-gray-600 text-gray-400 hover:text-white transition-colors">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                           </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
+                          <button onClick={() => { setSelectedUser(user); setErrorMsg(''); setShowPasswordModal(true); }} className="p-2 rounded-lg bg-[#121016] border border-gray-800 hover:border-gray-600 text-gray-400 hover:text-white transition-colors">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
+                          </button>
+                          {user.user_id !== currentUser?.user_id && (
+                            <button onClick={() => { setSelectedUser(user); setShowDeleteModal(true); }} className="p-2 rounded-lg bg-[#121016] border border-gray-800 hover:border-red-500/50 hover:text-red-400 text-gray-400 transition-colors">
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {paginatedUsers.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="p-5 text-center text-sm text-gray-500">
+                        No users found.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* CONTROLS PAGINATION */}
+            <div className="flex flex-col sm:flex-row items-center justify-between p-5 border-t border-gray-800/60 bg-[#0d0a14] gap-4 sm:gap-0 text-sm text-gray-400">
+              <div className="text-xs sm:text-sm">
+                Showing{' '}
+                <span className="text-white font-medium">
+                  {filteredUsers.length === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1}
+                </span>{' '}
+                to{' '}
+                <span className="text-white font-medium">
+                  {Math.min(currentPage * ITEMS_PER_PAGE, filteredUsers.length)}
+                </span>{' '}
+                of <span className="text-white font-medium">{filteredUsers.length}</span> records
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1.5 rounded-xl bg-[#121016] border border-gray-800 hover:border-gray-600 text-gray-400 hover:text-white text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  Previous
+                </button>
+                
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`px-3 py-1.5 rounded-xl border text-xs font-mono font-bold transition-colors ${
+                      currentPage === page
+                        ? 'bg-purple-500/20 border-purple-500 text-purple-300 shadow-[0_0_15px_rgba(147,51,234,0.15)]'
+                        : 'bg-[#121016] border-gray-800 hover:border-gray-600 text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    {page}
+                  </button>
                 ))}
-              </tbody>
-            </table>
-          </div>
+
+                <button
+                  onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages || totalPages === 0}
+                  className="px-3 py-1.5 rounded-xl bg-[#121016] border border-gray-800 hover:border-gray-600 text-gray-400 hover:text-white text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          </>
         )}
       </div>
 
