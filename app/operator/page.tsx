@@ -232,15 +232,6 @@ export default function OperatorPage() {
                     <div className="text-gray-500 text-[11px] font-sans tracking-normal leading-relaxed normal-case">See real-time vessel location and heading.</div>
                   </div>
                 </div>
-                <div onClick={() => setActiveTab('MAP')} className="flex items-start gap-4 p-3 rounded-xl hover:bg-white/5 cursor-pointer transition-colors group/item">
-                  <div className="w-10 h-10 rounded-xl bg-[#1a1528] flex items-center justify-center shrink-0 border border-purple-500/20 group-hover/item:border-purple-500/50">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-purple-400"><path d="M4 12h16M4 8h16M4 16h16" strokeDasharray="4 4" /></svg>
-                  </div>
-                  <div>
-                    <div className="text-white text-[13px] font-bold font-mono tracking-wide capitalize mb-1">Route Paths</div>
-                    <div className="text-gray-500 text-[11px] font-sans tracking-normal leading-relaxed normal-case">Review route lines and movement history.</div>
-                  </div>
-                </div>
               </div>
             </div>
           </div>
@@ -264,15 +255,6 @@ export default function OperatorPage() {
                   <div>
                     <div className="text-white text-[13px] font-bold font-mono tracking-wide capitalize mb-1">Performance</div>
                     <div className="text-gray-500 text-[11px] font-sans tracking-normal leading-relaxed normal-case">Inspect speed, heading, and fuel efficiency.</div>
-                  </div>
-                </div>
-                <div onClick={() => setActiveTab('ANALYTICS')} className="flex items-start gap-4 p-3 rounded-xl hover:bg-white/5 cursor-pointer transition-colors group/item">
-                  <div className="w-10 h-10 rounded-xl bg-[#1a1528] flex items-center justify-center shrink-0 border border-purple-500/20 group-hover/item:border-purple-500/50">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-purple-400"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="16" y2="18"/></svg>
-                  </div>
-                  <div>
-                    <div className="text-white text-[13px] font-bold font-mono tracking-wide capitalize mb-1">Status Summary</div>
-                    <div className="text-gray-500 text-[11px] font-sans tracking-normal leading-relaxed normal-case">Compare fleet condition and alerts.</div>
                   </div>
                 </div>
               </div>

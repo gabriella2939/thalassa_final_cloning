@@ -9,58 +9,64 @@ export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [emailError, setEmailError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [generalError, setGeneralError] = useState("");
   const [loading, setLoading] = useState(false);
   const supabase = createClient();
 
+  const clearErrors = () => {
+    setEmailError("");
+    setPasswordError("");
+    setGeneralError("");
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
+    clearErrors();
+    if (!email.trim()) {
+      setEmailError("Email cannot be empty");
+      return;
+    }
+    if (!password) {
+      setPasswordError("Password cannot be empty");
+      return;
+    }
     setLoading(true);
-    
+
     try {
-      console.log("Memulai pencarian user...");
       const { data, error } = await supabase
         .from("User")
         .select("*")
         .eq("user_email", email)
         .eq("user_password", password)
         .single();
-    
       if (error || !data) {
-        console.log("User tidak ditemukan atau password salah:", error);
-        setError("Email atau password salah.");
+        setEmailError(" ");
+        setPasswordError(" ");
+        setGeneralError("Incorrect email or password. Please check and try again");
         setLoading(false);
         return;
       }
-    
-      console.log("User ditemukan:", data);
       localStorage.setItem("user", JSON.stringify(data));
-    
+
       if (data.user_role === "Admin") {
-        console.log("Redirecting to /dashboard...");
         router.push("/dashboard");
-        return; 
       } else if (data.user_role === "Operator") {
-        console.log("Redirecting to /operator...");
         router.push("/operator");
-        return;
       } else {
-        setError("Role tidak valid.");
+        setGeneralError("Akun Anda tidak memiliki akses ke sistem ini.");
         setLoading(false);
       }
-    
     } catch (err) {
-      console.error("Terjadi error sistem:", err);
-      setError("Terjadi kesalahan.");
+      console.error("Error sistem:", err);
+      setGeneralError("Terjadi kesalahan sistem. Coba beberapa saat lagi.");
       setLoading(false);
     }
   };
 
   return (
     <>
-
-
       <div className="page-wrapper">
         <img src="/background_cp.jpg" alt="Background" className="bg-img" />
         <div className="bg-overlay" />
@@ -77,15 +83,19 @@ export default function LoginPage() {
           </div>
 
           <form onSubmit={handleSubmit}>
+
             <div className="form-group">
-              <label className="form-label">Email / Username</label>
+              <label className="form-label">Email</label>
               <input
                 type="text"
-                className="form-input"
+                className={`form-input${emailError ? " input-error" : ""}`}
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={e => {
+                  setEmail(e.target.value);
+                  setEmailError("");
+                  setGeneralError("");
+                }}
                 autoComplete="username"
-                required
               />
             </div>
 
@@ -93,22 +103,31 @@ export default function LoginPage() {
               <label className="form-label">Password</label>
               <input
                 type="password"
-                className="form-input"
+                className={`form-input${passwordError ? " input-error" : ""}`}
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={e => {
+                  setPassword(e.target.value);
+                  setPasswordError("");
+                  setGeneralError("");
+                }}
                 autoComplete="current-password"
-                required
               />
             </div>
 
-            {error && <div style={{ color: "#ef4444", fontSize: "12px", marginBottom: "1rem", textAlign: "center" }}>{error}</div>}
+
+            {/* Pesan error — di atas tombol, rata tengah, merah */}
+            {(emailError.trim() || passwordError.trim() || generalError) && (
+              <p className="form-error-msg">
+                {generalError || emailError.trim() || passwordError.trim()}
+              </p>
+            )}
+
 
             <button type="submit" className="btn-submit" disabled={loading}>
               {loading ? "Authenticating..." : "Access System"}
             </button>
+
           </form>
-
-
 
           <button
             type="button"
@@ -122,5 +141,3 @@ export default function LoginPage() {
     </>
   );
 }
-
-//login

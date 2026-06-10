@@ -24,7 +24,13 @@ export default function UserManagementComponent() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState('');
+  
+  // ERROR STATES
+  const [addErrors, setAddErrors] = useState({ name: '', email: '', password: '' });
+  const [editErrors, setEditErrors] = useState({ name: '' });
+  const [pwErrors, setPwErrors] = useState({ newPassword: '', confirmPassword: '' });
+  const [globalError, setGlobalError] = useState('');
+  
   const [searchTerm, setSearchTerm] = useState('');
 
   // PAGINATION STATES & CONSTANTS
@@ -46,38 +52,62 @@ export default function UserManagementComponent() {
 
   useEffect(() => {
     fetchUsers();
+    const savedUser = localStorage.getItem('user');
+    if (savedUser) {
+      try { setCurrentUser(JSON.parse(savedUser)); } catch (e) {}
+    }
   }, []);
 
-  // Reset ke halaman 1 saat user mengetik di kolom pencarian
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm]);
 
   const handleAddUser = async () => {
+    const errors = { name: '', email: '', password: '' };
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    // VALIDASI SAAT DIKLIK
+    if (!formData.name.trim()) errors.name = 'Name is required.';
+    if (!formData.email.trim()) errors.email = 'Email is required.';
+    else if (!emailRegex.test(formData.email)) errors.email = 'Enter a valid email address.';
+
+    if (!formData.password) errors.password = 'Password is required.';
+    else if (formData.password.length < 6) errors.password = 'Password must be at least 6 characters.';
+
+    setAddErrors(errors);
+    if (errors.name || errors.email || errors.password) return;
+
+    setActionLoading(true);
     const { error } = await supabase
       .from('User')
-      .insert([
-        {
-          user_name: formData.name,
-          user_email: formData.email,
-          user_password: formData.password,
-          user_role: formData.role,
-        },
-      ]);
+      .insert([{
+        user_name: formData.name,
+        user_email: formData.email,
+        user_password: formData.password,
+        user_role: formData.role,
+      }]);
 
     if (error) {
-      setErrorMsg(error.message);
+      setAddErrors(prev => ({ ...prev, email: 'This email may already be in use.' }));
+      setActionLoading(false);
       return;
     }
 
+    setActionLoading(false);
     fetchUsers();
     setShowAddModal(false);
   };
 
   const handleEditUser = async () => {
-    if (!selectedUser || !formData.name) return;
-    setActionLoading(true);
+    if (!selectedUser) return;
     
+    // VALIDASI EDIT SAAT DIKLIK
+    if (!formData.name.trim()) {
+      setEditErrors({ name: 'Name is required.' });
+      return;
+    }
+
+    setActionLoading(true);
     const { error } = await supabase
       .from('User')
       .update({
@@ -88,7 +118,7 @@ export default function UserManagementComponent() {
 
     if (error) {
       console.error("Error saat edit:", error);
-      setErrorMsg(error.message);
+      setGlobalError(error.message);
     } else {
       setShowEditModal(false);
       fetchUsers();
@@ -107,7 +137,7 @@ export default function UserManagementComponent() {
 
     if (error) {
       console.error("Error saat delete:", error);
-      setErrorMsg(error.message);
+      setGlobalError(error.message);
     } else {
       setShowDeleteModal(false);
       fetchUsers();
@@ -116,21 +146,26 @@ export default function UserManagementComponent() {
   };
 
   const handleChangePassword = async () => {
-    if (!newPassword || newPassword !== confirmPassword) {
-      setErrorMsg('Password tidak cocok atau kosong.');
-      return;
-    }
-    setActionLoading(true);
-    setErrorMsg('');
+    const errors = { newPassword: '', confirmPassword: '' };
 
+    // VALIDASI PASSWORD SAAT DIKLIK
+    if (!newPassword) errors.newPassword = 'New password is required.';
+    else if (newPassword.length < 6) errors.newPassword = 'Password must be at least 6 characters.';
+
+    if (!confirmPassword) errors.confirmPassword = 'Please confirm your password.';
+    else if (newPassword !== confirmPassword) errors.confirmPassword = 'Passwords do not match.';
+
+    setPwErrors(errors);
+    if (errors.newPassword || errors.confirmPassword) return;
+
+    setActionLoading(true);
     const { error } = await supabase
       .from('User')
       .update({ user_password: newPassword })
       .eq('user_id', selectedUser?.user_id);
 
     if (error) {
-      console.error("Error saat ganti password:", error);
-      setErrorMsg(error.message);
+      setPwErrors(prev => ({ ...prev, newPassword: error.message }));
     } else {
       setShowPasswordModal(false);
       setNewPassword('');
@@ -147,8 +182,9 @@ export default function UserManagementComponent() {
       email: user.user_email,
       role: user.user_role,
       password: '',
-     });
-    setErrorMsg('');
+    });
+    setEditErrors({ name: '' });
+    setGlobalError('');
     setShowEditModal(true);
   };
 
@@ -156,13 +192,11 @@ export default function UserManagementComponent() {
   const admins = users.filter(u => u.user_role === 'Admin').length;
   const operators = users.filter(u => u.user_role === 'Operator').length;
 
-  // Filter users berdasarkan nama atau email
   const filteredUsers = users.filter((user) =>
     user.user_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.user_email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // PAGINATION LOGIC
   const totalPages = Math.ceil(filteredUsers.length / ITEMS_PER_PAGE);
   const paginatedUsers = filteredUsers.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
@@ -185,7 +219,7 @@ export default function UserManagementComponent() {
           </div>
         </div>
         <button
-          onClick={() => { setFormData({ name: '', email: '', role: 'Operator', password: '' }); setErrorMsg(''); setShowAddModal(true); }}
+          onClick={() => { setFormData({ name: '', email: '', role: 'Operator', password: '' }); setAddErrors({ name: '', email: '', password: '' }); setGlobalError(''); setShowAddModal(true); }}
           className="flex items-center gap-2 px-6 py-3 rounded-xl bg-[#8b5cf6] hover:bg-[#7c3aed] text-white font-medium shadow-[0_0_20px_rgba(139,92,246,0.3)] transition-all"
         >
           <span className="text-xl leading-none mt-[-2px]">+</span> Add User
@@ -216,24 +250,14 @@ export default function UserManagementComponent() {
       {/* TABLE CONTAINER */}
       <div className="bg-[#0b0a0e] border border-gray-800/60 rounded-2xl overflow-hidden">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-5 border-b border-gray-800/60 gap-4 sm:gap-0">
-          
-          {/* KELOMPOK KIRI: Judul + Icon + Input Search */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 w-full sm:w-auto">
             <h3 className="text-xs font-bold tracking-widest text-purple-400 uppercase font-mono whitespace-nowrap">
               System Users
             </h3>
-            
-            {/* SEARCH CONTAINER */}
             <div className="flex items-center gap-3 w-full sm:w-auto">
-              <svg 
-                className="w-5 h-5 text-gray-400 flex-shrink-0" 
-                fill="none" 
-                viewBox="0 0 24 24" 
-                stroke="currentColor"
-              >
+              <svg className="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
-              
               <input
                 type="text"
                 placeholder="Search name or email..."
@@ -243,8 +267,6 @@ export default function UserManagementComponent() {
               />
             </div>
           </div>
-
-          {/* KELOMPOK KANAN: Total Records */}
           <span className="text-xs text-gray-500 font-mono self-end sm:self-auto">
             {filteredUsers.length} records
           </span>
@@ -293,11 +315,11 @@ export default function UserManagementComponent() {
                           <button onClick={() => openEdit(user)} className="p-2 rounded-lg bg-[#121016] border border-gray-800 hover:border-gray-600 text-gray-400 hover:text-white transition-colors">
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                           </button>
-                          <button onClick={() => { setSelectedUser(user); setErrorMsg(''); setShowPasswordModal(true); }} className="p-2 rounded-lg bg-[#121016] border border-gray-800 hover:border-gray-600 text-gray-400 hover:text-white transition-colors">
+                          <button onClick={() => { setSelectedUser(user); setPwErrors({ newPassword: '', confirmPassword: '' }); setShowPasswordModal(true); }} className="p-2 rounded-lg bg-[#121016] border border-gray-800 hover:border-gray-600 text-gray-400 hover:text-white transition-colors">
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
                           </button>
                           {user.user_id !== currentUser?.user_id && (
-                            <button onClick={() => { setSelectedUser(user); setShowDeleteModal(true); }} className="p-2 rounded-lg bg-[#121016] border border-gray-800 hover:border-red-500/50 hover:text-red-400 text-gray-400 transition-colors">
+                            <button onClick={() => { setSelectedUser(user); setGlobalError(''); setShowDeleteModal(true); }} className="p-2 rounded-lg bg-[#121016] border border-gray-800 hover:border-red-500/50 hover:text-red-400 text-gray-400 transition-colors">
                               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                             </button>
                           )}
@@ -374,19 +396,45 @@ export default function UserManagementComponent() {
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
             <h2 className="text-xl font-bold text-purple-400 mb-6">Add New User</h2>
-            {errorMsg && <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs">{errorMsg}</div>}
+
             <div className="space-y-4">
-              {[
-                { label: 'Name', key: 'name', type: 'text' },
-                { label: 'Email', key: 'email', type: 'email' },
-                { label: 'Password', key: 'password', type: 'password' },
-              ].map(({ label, key, type }) => (
-                <div key={key}>
-                  <label className="text-[10px] text-gray-400 tracking-widest mb-2 block uppercase">{label}</label>
-                  <input type={type} value={(formData as any)[key]} onChange={e => setFormData({...formData, [key]: e.target.value})}
-                    className="w-full bg-[#121016] border border-gray-800 rounded-xl p-3 text-white text-sm focus:outline-none focus:border-purple-500" />
-                </div>
-              ))}
+              {/* NAME */}
+              <div>
+                <label className="text-[10px] text-gray-400 tracking-widest mb-2 block uppercase">Name</label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={e => { setFormData({...formData, name: e.target.value}); setAddErrors(p => ({...p, name: ''})); }}
+                  className={`w-full bg-[#121016] border rounded-xl p-3 text-white text-sm focus:outline-none transition-colors ${addErrors.name ? 'border-red-500' : 'border-gray-800 focus:border-purple-500'}`}
+                />
+                {addErrors.name && <p className="text-red-400 text-[10px] mt-1.5 tracking-widest font-mono uppercase">{addErrors.name}</p>}
+              </div>
+
+              {/* EMAIL */}
+              <div>
+                <label className="text-[10px] text-gray-400 tracking-widest mb-2 block uppercase">Email</label>
+                <input
+                  type="email"
+                  value={formData.email}
+                  onChange={e => { setFormData({...formData, email: e.target.value}); setAddErrors(p => ({...p, email: ''})); }}
+                  className={`w-full bg-[#121016] border rounded-xl p-3 text-white text-sm focus:outline-none transition-colors ${addErrors.email ? 'border-red-500' : 'border-gray-800 focus:border-purple-500'}`}
+                />
+                {addErrors.email && <p className="text-red-400 text-[10px] mt-1.5 tracking-widest font-mono uppercase">{addErrors.email}</p>}
+              </div>
+
+              {/* PASSWORD */}
+              <div>
+                <label className="text-[10px] text-gray-400 tracking-widest mb-2 block uppercase">Password</label>
+                <input
+                  type="password"
+                  value={formData.password}
+                  onChange={e => { setFormData({...formData, password: e.target.value}); setAddErrors(p => ({...p, password: ''})); }}
+                  className={`w-full bg-[#121016] border rounded-xl p-3 text-white text-sm focus:outline-none transition-colors ${addErrors.password ? 'border-red-500' : 'border-gray-800 focus:border-purple-500'}`}
+                />
+                {addErrors.password && <p className="text-red-400 text-[10px] mt-1.5 tracking-widest font-mono uppercase">{addErrors.password}</p>}
+              </div>
+
+              {/* ROLE */}
               <div>
                 <label className="text-[10px] text-gray-400 tracking-widest mb-2 block uppercase">Role</label>
                 <select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})}
@@ -396,9 +444,14 @@ export default function UserManagementComponent() {
                 </select>
               </div>
             </div>
+
             <div className="flex gap-3 mt-8">
               <button onClick={() => setShowAddModal(false)} className="flex-1 py-3 rounded-xl bg-[#2a2b36] text-white text-sm">Cancel</button>
-              <button onClick={handleAddUser} disabled={actionLoading} className="flex-1 py-3 rounded-xl bg-[#8b5cf6] hover:bg-[#7c3aed] text-white font-medium text-sm disabled:opacity-50">
+              {/* BUTTON TETAP AKTIF, TIDAK DISABLED */}
+              <button 
+                onClick={handleAddUser} 
+                className="flex-1 py-3 rounded-xl bg-[#8b5cf6] hover:bg-[#7c3aed] text-white font-medium text-sm transition-all"
+              >
                 {actionLoading ? 'Adding...' : 'Add User'}
               </button>
             </div>
@@ -414,11 +467,19 @@ export default function UserManagementComponent() {
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
             <h2 className="text-xl font-bold text-purple-400 mb-6">Edit User</h2>
+            
+            {globalError && <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-mono uppercase">{globalError}</div>}
+            
             <div className="space-y-4">
               <div>
                 <label className="text-[10px] text-gray-400 tracking-widest mb-2 block uppercase">Name</label>
-                <input type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})}
-                  className="w-full bg-[#121016] border border-gray-800 rounded-xl p-3 text-white text-sm focus:outline-none focus:border-purple-500" />
+                <input 
+                  type="text" 
+                  value={formData.name} 
+                  onChange={e => { setFormData({...formData, name: e.target.value}); setEditErrors({name: ''}); }}
+                  className={`w-full bg-[#121016] border rounded-xl p-3 text-white text-sm focus:outline-none transition-colors ${editErrors.name ? 'border-red-500' : 'border-gray-800 focus:border-purple-500'}`} 
+                />
+                {editErrors.name && <p className="text-red-400 text-[10px] mt-1.5 tracking-widest font-mono uppercase">{editErrors.name}</p>}
               </div>
               <div>
                 <label className="text-[10px] text-gray-400 tracking-widest mb-2 block uppercase">Email</label>
@@ -436,7 +497,11 @@ export default function UserManagementComponent() {
             </div>
             <div className="flex gap-3 mt-8">
               <button onClick={() => setShowEditModal(false)} className="flex-1 py-3 rounded-xl bg-[#2a2b36] text-white text-sm">Cancel</button>
-              <button onClick={handleEditUser} disabled={actionLoading} className="flex-1 py-3 rounded-xl bg-[#8b5cf6] hover:bg-[#7c3aed] text-white font-medium text-sm disabled:opacity-50">
+              {/* BUTTON TETAP AKTIF, TIDAK DISABLED */}
+              <button 
+                onClick={handleEditUser} 
+                className="flex-1 py-3 rounded-xl bg-[#8b5cf6] hover:bg-[#7c3aed] text-white font-medium text-sm transition-all"
+              >
                 {actionLoading ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
@@ -452,7 +517,8 @@ export default function UserManagementComponent() {
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
             <h2 className="text-xl font-bold text-red-400 mb-4">Confirm Delete</h2>
-            <p className="text-gray-300 text-sm mb-8">Hapus user <span className="text-white font-bold">{selectedUser.user_name}</span>? Tindakan ini tidak bisa dibatalkan.</p>
+            {globalError && <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-mono uppercase">{globalError}</div>}
+            <p className="text-gray-300 text-sm mb-8">Delete user <span className="text-white font-bold">{selectedUser.user_name}</span>? This action cannot be undone.</p>
             <div className="flex gap-3">
               <button onClick={() => setShowDeleteModal(false)} className="flex-1 py-3 rounded-xl bg-[#2a2b36] text-white text-sm">Cancel</button>
               <button onClick={handleDeleteUser} disabled={actionLoading} className="flex-1 py-3 rounded-xl bg-[#dc2626] hover:bg-[#b91c1c] text-white font-medium text-sm disabled:opacity-50">
@@ -472,22 +538,42 @@ export default function UserManagementComponent() {
             </button>
             <h2 className="text-xl font-bold text-purple-400 mb-2">Change Password</h2>
             <p className="text-xs text-gray-500 mb-4">User: <span className="text-gray-300">{selectedUser.user_name}</span></p>
-            {errorMsg && <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs">{errorMsg}</div>}
+
             <div className="space-y-4">
+              {/* NEW PASSWORD */}
               <div>
                 <label className="text-[10px] text-gray-400 tracking-widest mb-2 block uppercase">New Password</label>
-                <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="••••••••"
-                  className="w-full bg-[#121016] border border-gray-800 rounded-xl p-3 text-white text-sm focus:outline-none focus:border-purple-500" />
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={e => { setNewPassword(e.target.value); setPwErrors(p => ({...p, newPassword: ''})); }}
+                  placeholder="••••••••"
+                  className={`w-full bg-[#121016] border rounded-xl p-3 text-white text-sm focus:outline-none transition-colors ${pwErrors.newPassword ? 'border-red-500' : 'border-gray-800 focus:border-purple-500'}`}
+                />
+                {pwErrors.newPassword && <p className="text-red-400 text-[10px] mt-1.5 tracking-widest font-mono uppercase">{pwErrors.newPassword}</p>}
               </div>
+
+              {/* CONFIRM PASSWORD */}
               <div>
                 <label className="text-[10px] text-gray-400 tracking-widest mb-2 block uppercase">Confirm Password</label>
-                <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="••••••••"
-                  className="w-full bg-[#121016] border border-gray-800 rounded-xl p-3 text-white text-sm focus:outline-none focus:border-purple-500" />
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={e => { setConfirmPassword(e.target.value); setPwErrors(p => ({...p, confirmPassword: ''})); }}
+                  placeholder="••••••••"
+                  className={`w-full bg-[#121016] border rounded-xl p-3 text-white text-sm focus:outline-none transition-colors ${pwErrors.confirmPassword ? 'border-red-500' : 'border-gray-800 focus:border-purple-500'}`}
+                />
+                {pwErrors.confirmPassword && <p className="text-red-400 text-[10px] mt-1.5 tracking-widest font-mono uppercase">{pwErrors.confirmPassword}</p>}
               </div>
             </div>
+
             <div className="flex gap-3 mt-8">
               <button onClick={() => setShowPasswordModal(false)} className="flex-1 py-3 rounded-xl bg-[#2a2b36] text-white text-sm">Cancel</button>
-              <button onClick={handleChangePassword} disabled={actionLoading} className="flex-1 py-3 rounded-xl bg-[#8b5cf6] hover:bg-[#7c3aed] text-white font-medium text-sm disabled:opacity-50">
+              {/* BUTTON TETAP AKTIF, TIDAK DISABLED */}
+              <button 
+                onClick={handleChangePassword} 
+                className="flex-1 py-3 rounded-xl bg-[#8b5cf6] hover:bg-[#7c3aed] text-white font-medium text-sm transition-all"
+              >
                 {actionLoading ? 'Saving...' : 'Save Password'}
               </button>
             </div>

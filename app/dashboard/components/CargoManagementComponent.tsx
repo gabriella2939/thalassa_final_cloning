@@ -21,6 +21,13 @@ export default function CargoManagementComponent() {
   // STATE: Untuk menyimpan data kargo yang sedang dilihat detailnya
   const [detailItem, setDetailItem] = useState<any | null>(null);
 
+  // STATE BARU: Untuk kontrol Modal Delete Custom
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [selectedCargo, setSelectedCargo] = useState<any | null>(null);
+
+  // STATE BARU: Untuk menyimpan status error dari masing-masing kotak input modal
+  const [cargoErrors, setCargoErrors] = useState<Record<string, string>>({});
+
   // STATE BARU: Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
@@ -41,6 +48,24 @@ export default function CargoManagementComponent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // VALIDASI FORM INLINE SAAT DI-SUBMIT
+    const errors: Record<string, string> = {};
+    if (!cargoData.tanggal_kirim) errors.tanggal_kirim = 'Shipping date is required.';
+    if (!cargoData.nama_pengirim.trim()) errors.nama_pengirim = 'Sender name is required.';
+    if (!cargoData.nama_penerima.trim()) errors.nama_penerima = 'Recipient name is required.';
+    if (!cargoData.no_telepon.trim()) errors.no_telepon = 'Phone number is required.';
+    if (!cargoData.kota_asal.trim()) errors.kota_asal = 'Origin city is required.';
+    if (!cargoData.kota_tujuan.trim()) errors.kota_tujuan = 'Destination city is required.';
+    if (!cargoData.jenis_barang.trim()) errors.jenis_barang = 'Cargo type is required.';
+    if (!cargoData.berat_barang) errors.berat_barang = 'Weight is required.';
+    if (!cargoData.harga_tarif) errors.harga_tarif = 'Tariff price is required.';
+
+    setCargoErrors(errors);
+
+    // Jika ada input kosong, batalkan pengiriman ke database
+    if (Object.keys(errors).length > 0) return;
+
     if (editingId) {
       await supabase.from('cargo').update({ ...cargoData }).eq('id', editingId);
     } else {
@@ -62,14 +87,17 @@ export default function CargoManagementComponent() {
       jenis_pengiriman: item.jenis_pengiriman, status_pengiriman: item.status_pengiriman,
       deskripsi: item.deskripsi || ''
     });
+    setCargoErrors({});
     setShowModal(true);
   };
 
-  const handleDelete = async (id: string) => {
-    if (confirm("Apakah Anda yakin ingin menghapus data ini?")) {
-      await supabase.from('cargo').delete().eq('id', id);
-      fetchCargo();
-    }
+  // FUNGSI BARU: Eksekusi hapus kargo dari modal custom
+  const handleDeleteConfirm = async () => {
+    if (!selectedCargo) return;
+    await supabase.from('cargo').delete().eq('id', selectedCargo.id);
+    fetchCargo();
+    setShowDeleteModal(false);
+    setSelectedCargo(null);
   };
 
   const closeModal = () => {
@@ -81,6 +109,7 @@ export default function CargoManagementComponent() {
       harga_tarif: '', jenis_kendaraan: 'Truck', jenis_pengiriman: 'Biasa',
       status_pengiriman: 'Diproses', deskripsi: ''
     });
+    setCargoErrors({});
   };
 
   const filteredCargo = cargoList.filter((item) =>
@@ -104,7 +133,7 @@ export default function CargoManagementComponent() {
           Cargo Management
         </h2>
         <button 
-          onClick={() => setShowModal(true)} 
+          onClick={() => { setCargoErrors({}); setShowModal(true); }} 
           className="bg-purple-600 px-6 py-3 rounded-xl text-white font-bold tracking-widest hover:bg-purple-500 transition-all"
         >
           + Add Cargo
@@ -113,12 +142,7 @@ export default function CargoManagementComponent() {
 
       {/* SEARCH BAR */}
       <div className="flex items-center gap-3 mb-6">
-        <svg 
-          className="w-5 h-5 text-gray-400 flex-shrink-0" 
-          fill="none" 
-          viewBox="0 0 24 24" 
-          stroke="currentColor"
-        >
+        <svg className="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
         </svg>
         
@@ -147,7 +171,6 @@ export default function CargoManagementComponent() {
                 </tr>
               </thead>
               <tbody className="text-white text-sm">
-                {/* Ganti filteredCargo dengan paginatedCargo */}
                 {paginatedCargo.map((item) => (
                   <tr key={item.id} className="border-b border-gray-800/50 hover:bg-white/5">
                     <td className="py-4 font-mono text-purple-400">{item.id}</td>
@@ -161,15 +184,23 @@ export default function CargoManagementComponent() {
                         'bg-yellow-600/20 text-yellow-400'
                       }`}>{item.status_pengiriman}</span>
                     </td>
-                    <td className="py-4 text-center flex justify-center gap-2">
-                      <button 
-                        onClick={() => setDetailItem(item)} 
-                        className="px-3 py-1 bg-purple-600/20 text-purple-400 rounded-lg text-[10px] font-bold hover:bg-purple-600/40 transition-colors"
-                      >
-                        DETAIL
+                    <td className="py-4 text-center flex justify-center items-center gap-2">
+                      <button onClick={() => setDetailItem(item)} className="p-2 rounded-lg bg-[#121016] border border-gray-800 hover:border-gray-600 text-gray-400 hover:text-purple-400 transition-colors" title="Detail Cargo">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
                       </button>
-                      <button onClick={() => handleEdit(item)} className="px-3 py-1 bg-blue-600/20 text-blue-400 rounded-lg text-[10px] font-bold hover:bg-blue-600/40">EDIT</button>
-                      <button onClick={() => handleDelete(item.id)} className="px-3 py-1 bg-red-600/20 text-red-400 rounded-lg text-[10px] font-bold hover:bg-red-600/40">HAPUS</button>
+                      <button onClick={() => handleEdit(item)} className="p-2 rounded-lg bg-[#121016] border border-gray-800 hover:border-gray-600 text-gray-400 hover:text-white transition-colors" title="Edit Cargo">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                      </button>
+                      <button onClick={() => { setSelectedCargo(item); setShowDeleteModal(true); }} className="p-2 rounded-lg bg-[#121016] border border-gray-800 hover:border-red-500/50 hover:text-red-400 text-gray-400 transition-colors" title="Hapus Cargo">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -187,28 +218,39 @@ export default function CargoManagementComponent() {
 
         {/* PAGINATION CONTROLS */}
         {!loading && filteredCargo.length > 0 && (
-          <div className="flex flex-col sm:flex-row justify-between items-center mt-6 pt-4 border-t border-gray-800/50 gap-4">
-            <span className="text-xs text-gray-500 font-mono">
-              Menampilkan {startIndex + 1} - {Math.min(startIndex + itemsPerPage, filteredCargo.length)} dari {filteredCargo.length} data
-            </span>
-            <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row items-center justify-between p-5 border-t border-gray-800/60 bg-[#0d0a14] gap-4 sm:gap-0 text-sm text-gray-400 mt-6 rounded-xl">
+            <div className="text-xs sm:text-sm font-sans">
+              Showing{' '}
+              <span className="text-white font-medium">
+                {filteredCargo.length === 0 ? 0 : startIndex + 1}
+              </span>{' '}
+              to{' '}
+              <span className="text-white font-medium">
+                {Math.min(currentPage * itemsPerPage, filteredCargo.length)}
+              </span>{' '}
+              of <span className="text-white font-medium">{filteredCargo.length}</span> records
+            </div>
+            
+            <div className="flex items-center gap-2">
               <button
+                type="button"
                 onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
                 disabled={currentPage === 1}
-                className="px-4 py-2 bg-[#121016] border border-gray-800 rounded-lg text-white text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-800 transition-colors"
+                className="px-3 py-1.5 rounded-xl bg-[#121016] border border-gray-800 hover:border-gray-600 text-gray-400 hover:text-white text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
-                PREV
+                Previous
               </button>
               
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 font-mono">
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                   <button
                     key={page}
+                    type="button"
                     onClick={() => setCurrentPage(page)}
-                    className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold transition-colors ${
-                      currentPage === page 
-                        ? 'bg-purple-600 text-white' 
-                        : 'text-gray-400 hover:bg-gray-800 border border-transparent hover:border-gray-700'
+                    className={`px-3 py-1.5 rounded-xl border text-xs font-mono font-bold transition-colors ${
+                      currentPage === page
+                        ? 'bg-purple-500/20 border-purple-500 text-purple-300 shadow-[0_0_15px_rgba(147,51,234,0.15)]'
+                        : 'bg-[#121016] border-gray-800 hover:border-gray-600 text-gray-400 hover:text-white'
                     }`}
                   >
                     {page}
@@ -217,11 +259,12 @@ export default function CargoManagementComponent() {
               </div>
 
               <button
+                type="button"
                 onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-                disabled={currentPage === totalPages}
-                className="px-4 py-2 bg-[#121016] border border-gray-800 rounded-lg text-white text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-800 transition-colors"
+                disabled={currentPage === totalPages || totalPages === 0}
+                className="px-3 py-1.5 rounded-xl bg-[#121016] border border-gray-800 hover:border-gray-600 text-gray-400 hover:text-white text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
-                NEXT
+                Next
               </button>
             </div>
           </div>
@@ -231,14 +274,16 @@ export default function CargoManagementComponent() {
       {/* MODAL FORM: TAMBAH / EDIT CARGO */}
       {showModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#0c0a13] border border-gray-800 rounded-2xl w-full max-w-2xl p-8 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+          <div className="bg-[#0c0a13] border border-purple-500/30 rounded-2xl w-full max-w-2xl p-8 shadow-2xl relative max-h-[90vh] overflow-y-auto font-mono">
             <button onClick={closeModal} className="absolute top-6 right-6 text-gray-500 hover:text-white">✕</button>
             <h2 className="text-white text-xl font-bold font-mono mb-6 uppercase border-l-4 border-purple-500 pl-4">{editingId ? "Edit Cargo" : "Tambah Cargo"}</h2>
+            
             <form className="grid grid-cols-1 md:grid-cols-2 gap-6" onSubmit={handleSubmit}>
               <div className="md:col-span-2">
-                <label className="text-[10px] text-gray-500 uppercase mb-2 block">Id Pengiriman / No Resi</label>
+                <label className="text-[10px] text-gray-400 tracking-widest mb-2 block uppercase">Id Pengiriman / No Resi</label>
                 <input disabled value={editingId || "AUTO-GENERATED"} className="w-full bg-[#050505] border border-gray-800 rounded-xl p-4 text-gray-600 font-mono" />
               </div>
+              
               {[
                 { label: 'Tanggal Kirim', key: 'tanggal_kirim', type: 'date' },
                 { label: 'Nama Pengirim', key: 'nama_pengirim', type: 'text' },
@@ -251,19 +296,27 @@ export default function CargoManagementComponent() {
                 { label: 'Harga/Tarif', key: 'harga_tarif', type: 'number' },
               ].map(({ label, key, type }) => (
                 <div key={key}>
-                  <label className="text-[10px] text-gray-500 uppercase mb-2 block">{label}</label>
-                  <input required type={type} value={(cargoData as any)[key]}
-                    onChange={(e) => setCargoData({...cargoData, [key]: e.target.value})}
-                    className="w-full bg-[#050505] border border-gray-800 rounded-xl p-4 text-white focus:outline-none focus:border-purple-500" />
+                  <label className="text-[10px] text-gray-400 tracking-widest mb-2 block uppercase">{label}</label>
+                  <input 
+                    type={type} 
+                    value={(cargoData as any)[key]}
+                    onChange={(e) => {
+                      setCargoData({...cargoData, [key]: e.target.value});
+                      setCargoErrors(p => ({...p, [key]: ''}));
+                    }}
+                    className={`w-full bg-[#050505] border rounded-xl p-4 text-white focus:outline-none transition-colors ${cargoErrors[key] ? 'border-red-500' : 'border-gray-800 focus:border-purple-500'}`} 
+                  />
+                  {cargoErrors[key] && <p className="text-red-400 text-[10px] mt-1.5 tracking-widest font-mono uppercase">{cargoErrors[key]}</p>}
                 </div>
               ))}
+              
               {[
                 { label: 'Jenis Kendaraan', key: 'jenis_kendaraan', options: ['Truck', 'Pick-up', 'Kontainer'] },
                 { label: 'Jenis Pengiriman', key: 'jenis_pengiriman', options: ['Biasa', 'Cepat', 'Vvip'] },
                 { label: 'Status', key: 'status_pengiriman', options: ['Diproses', 'Dikirim', 'Diterima'] },
               ].map(({ label, key, options }) => (
                 <div key={key}>
-                  <label className="text-[10px] text-gray-500 uppercase mb-2 block">{label}</label>
+                  <label className="text-[10px] text-gray-400 tracking-widest mb-2 block uppercase">{label}</label>
                   <select value={(cargoData as any)[key]}
                     onChange={(e) => setCargoData({...cargoData, [key]: e.target.value})}
                     className="w-full bg-[#050505] border border-gray-800 rounded-xl p-4 text-white focus:outline-none focus:border-purple-500">
@@ -272,7 +325,7 @@ export default function CargoManagementComponent() {
                 </div>
               ))}
               <div className="md:col-span-2">
-                <label className="text-[10px] text-gray-500 uppercase mb-2 block">Deskripsi Barang</label>
+                <label className="text-[10px] text-gray-400 tracking-widest mb-2 block uppercase">Deskripsi Barang</label>
                 <textarea value={cargoData.deskripsi}
                   onChange={(e) => setCargoData({...cargoData, deskripsi: e.target.value})}
                   className="w-full bg-[#050505] border border-gray-800 rounded-xl p-4 text-white h-24 focus:outline-none focus:border-purple-500" />
@@ -286,22 +339,12 @@ export default function CargoManagementComponent() {
         </div>
       )}
 
-      {/* MODAL BARU: VIEW DETAILS DI DESIGN SEPERTI DETAIL PENGIRIMAN / RINGKASAN RESI */}
+      {/* MODAL VIEW DETAILS */}
       {detailItem && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-[#0c0a13] border border-gray-800 rounded-2xl w-full max-w-2xl p-8 shadow-2xl relative max-h-[90vh] overflow-y-auto">
-            <button 
-              onClick={() => setDetailItem(null)} 
-              className="absolute top-6 right-6 text-gray-500 hover:text-white transition-colors"
-            >
-              ✕
-            </button>
-            
-            <h2 className="text-white text-xl font-bold font-mono mb-6 uppercase border-l-4 border-purple-500 pl-4">
-              Detail Pengiriman
-            </h2>
-
-            {/* Bagian Ringkasan Resi & Status */}
+            <button onClick={() => setDetailItem(null)} className="absolute top-6 right-6 text-gray-500 hover:text-white transition-colors">✕</button>
+            <h2 className="text-white text-xl font-bold font-mono mb-6 uppercase border-l-4 border-purple-500 pl-4">Detail Pengiriman</h2>
             <div className="flex flex-wrap items-center justify-between gap-4 bg-[#121016] border border-gray-800/60 p-4 rounded-xl mb-6">
               <div>
                 <span className="text-[10px] text-gray-500 uppercase block">No. Resi Pengiriman</span>
@@ -309,17 +352,9 @@ export default function CargoManagementComponent() {
               </div>
               <div>
                 <span className="text-[10px] text-gray-500 uppercase block mb-1 text-right sm:text-left">Status Kargo</span>
-                <span className={`px-3 py-1 rounded-lg text-xs font-bold ${
-                  detailItem.status_pengiriman === 'Diterima' ? 'bg-emerald-600/20 text-emerald-400' :
-                  detailItem.status_pengiriman === 'Dikirim' ? 'bg-blue-600/20 text-blue-400' :
-                  'bg-yellow-600/20 text-yellow-400'
-                }`}>
-                  {detailItem.status_pengiriman}
-                </span>
+                <span className={`px-3 py-1 rounded-lg text-xs font-bold ${detailItem.status_pengiriman === 'Diterima' ? 'bg-emerald-600/20 text-emerald-400' : detailItem.status_pengiriman === 'Dikirim' ? 'bg-blue-600/20 text-blue-400' : 'bg-yellow-600/20 text-yellow-400'}`}>{detailItem.status_pengiriman}</span>
               </div>
             </div>
-
-            {/* Rute Perjalanan */}
             <div className="grid grid-cols-1 sm:grid-cols-3 items-center gap-4 bg-[#050505] border border-gray-800 p-4 rounded-xl mb-6 text-center sm:text-left">
               <div>
                 <span className="text-[10px] text-gray-500 uppercase block">Kota Asal</span>
@@ -337,8 +372,6 @@ export default function CargoManagementComponent() {
                 <span className="text-white font-bold text-base">{detailItem.kota_tujuan}</span>
               </div>
             </div>
-
-            {/* Informasi Pengirim & Penerima */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-[#121016] border border-gray-800 p-6 rounded-xl mb-6">
               <div>
                 <h4 className="text-xs font-bold text-purple-400 uppercase tracking-wider mb-3 border-b border-gray-800 pb-1">Data Pengirim</h4>
@@ -347,7 +380,6 @@ export default function CargoManagementComponent() {
                   <p><span className="text-gray-500">Tanggal Kirim:</span> <span className="text-white font-mono">{detailItem.tanggal_kirim}</span></p>
                 </div>
               </div>
-
               <div>
                 <h4 className="text-xs font-bold text-purple-400 uppercase tracking-wider mb-3 border-b border-gray-800 pb-1">Data Penerima</h4>
                 <div className="space-y-2 text-sm">
@@ -356,8 +388,6 @@ export default function CargoManagementComponent() {
                 </div>
               </div>
             </div>
-
-            {/* Spesifikasi & Tarif Barang */}
             <div className="bg-[#050505] border border-gray-800 rounded-xl p-6 mb-6">
               <h4 className="text-xs font-bold text-purple-400 uppercase tracking-wider mb-4 border-b border-gray-800 pb-1">Spesifikasi & Logistik</h4>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-6 text-sm">
@@ -379,29 +409,47 @@ export default function CargoManagementComponent() {
                 </div>
                 <div className="col-span-2 sm:col-span-2">
                   <span className="text-gray-500 block text-[10px] uppercase">Harga / Tarif</span>
-                  <span className="text-emerald-400 font-bold text-base">
-                    Rp {Number(detailItem.harga_tarif).toLocaleString('id-ID')}
-                  </span>
+                  <span className="text-emerald-400 font-bold text-base">Rp {Number(detailItem.harga_tarif).toLocaleString('id-ID')}</span>
                 </div>
               </div>
             </div>
-
-            {/* Deskripsi Barang */}
             <div className="bg-[#121016] border border-gray-800 rounded-xl p-4 mb-6">
               <span className="text-[10px] text-gray-500 uppercase block mb-1">Deskripsi Barang</span>
-              <p className="text-gray-300 text-sm whitespace-pre-wrap leading-relaxed">
-                {detailItem.deskripsi || <span className="text-gray-600 italic">Tidak ada deskripsi barang.</span>}
-              </p>
+              <p className="text-gray-300 text-sm whitespace-pre-wrap leading-relaxed">{detailItem.deskripsi || <span className="text-gray-600 italic">Tidak ada deskripsi barang.</span>}</p>
             </div>
-
-            {/* Tombol Tutup */}
             <div className="flex justify-end">
+              <button type="button" onClick={() => setDetailItem(null)} className="px-6 py-3 rounded-xl bg-gray-800 text-white font-bold hover:bg-gray-700 transition-colors text-sm">Tutup Detail</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL BARU: CUSTOM CONFIRM DELETE BERBAHASA INGGRIS (Sesuai Gambar 3) */}
+      {showDeleteModal && selectedCargo && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#0b0a0e] border border-red-500/30 rounded-2xl w-full max-w-md p-6 shadow-[0_0_40px_rgba(239,68,68,0.15)] relative font-mono animate-fade-in">
+            <button 
+              onClick={() => { setShowDeleteModal(false); setSelectedCargo(null); }} 
+              className="absolute top-6 right-6 text-gray-500 hover:text-white transition-colors"
+            >
+              ✕
+            </button>
+            <h2 className="text-xl font-bold text-red-400 mb-4">Confirm Delete</h2>
+            <p className="text-gray-300 text-sm mb-8">
+              Delete cargo data with Resi <span className="text-white font-bold font-mono">{selectedCargo.id}</span>? This action cannot be undone.
+            </p>
+            <div className="flex gap-3">
               <button 
-                type="button" 
-                onClick={() => setDetailItem(null)} 
-                className="px-6 py-3 rounded-xl bg-gray-800 text-white font-bold hover:bg-gray-700 transition-colors text-sm"
+                onClick={() => { setShowDeleteModal(false); setSelectedCargo(null); }} 
+                className="flex-1 py-3 rounded-xl bg-[#2a2b36] text-white text-sm hover:bg-[#343544] transition-colors"
               >
-                Tutup Detail
+                Cancel
+              </button>
+              <button 
+                onClick={handleDeleteConfirm} 
+                className="flex-1 py-3 rounded-xl bg-[#dc2626] hover:bg-[#b91c1c] text-white font-medium text-sm shadow-[0_0_15px_rgba(220,38,38,0.2)] transition-colors"
+              >
+                Delete
               </button>
             </div>
           </div>
