@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
 
 const supabase = createClient();
-
 export default function CargoManagementComponent() {
   const [showModal, setShowModal] = useState(false);
   const [cargoList, setCargoList] = useState<any[]>([]);
@@ -12,25 +11,17 @@ export default function CargoManagementComponent() {
   const [cargoData, setCargoData] = useState({
     tanggal_kirim: '', nama_pengirim: '', nama_penerima: '', no_telepon: '',
     kota_asal: '', kota_tujuan: '', jenis_barang: '', berat_barang: '',
-    harga_tarif: '', jenis_kendaraan: 'Truck', jenis_pengiriman: 'Biasa',
-    status_pengiriman: 'Diproses', deskripsi: ''
+    harga_tarif: '', jenis_kendaraan: 'Container Ship', jenis_pengiriman: 'Regular',
+    status_pengiriman: 'Processed', deskripsi: ''
   });
-
   const [searchTerm, setSearchTerm] = useState('');
-  
-  // STATE: Untuk menyimpan data kargo yang sedang dilihat detailnya
   const [detailItem, setDetailItem] = useState<any | null>(null);
-
-  // STATE BARU: Untuk kontrol Modal Delete Custom
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedCargo, setSelectedCargo] = useState<any | null>(null);
-
-  // STATE BARU: Untuk menyimpan status error dari masing-masing kotak input modal
   const [cargoErrors, setCargoErrors] = useState<Record<string, string>>({});
-
-  // STATE BARU: Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
+  const [toast, setToast] = useState({show: false, title: '', message: '',});
 
   const fetchCargo = async () => {
     setLoading(true);
@@ -38,39 +29,61 @@ export default function CargoManagementComponent() {
     if (!error) setCargoList(data || []);
     setLoading(false);
   };
-
   useEffect(() => { fetchCargo(); }, []);
-
-  // Reset ke halaman 1 setiap kali melakukan pencarian baru
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm]);
 
+  const showToast = (title: string, message: string) => {
+  setToast({ show: true, title, message,});
+  setTimeout(() => {
+    setToast({ show: false, title: '', message: '', });
+  }, 3000);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // VALIDASI FORM INLINE SAAT DI-SUBMIT
     const errors: Record<string, string> = {};
     if (!cargoData.tanggal_kirim) errors.tanggal_kirim = 'Shipping date is required.';
     if (!cargoData.nama_pengirim.trim()) errors.nama_pengirim = 'Sender name is required.';
     if (!cargoData.nama_penerima.trim()) errors.nama_penerima = 'Recipient name is required.';
     if (!cargoData.no_telepon.trim()) errors.no_telepon = 'Phone number is required.';
+    if (!/^\d+$/.test(cargoData.no_telepon)) errors.no_telepon = 'Phone number must contain digits only.';
     if (!cargoData.kota_asal.trim()) errors.kota_asal = 'Origin city is required.';
     if (!cargoData.kota_tujuan.trim()) errors.kota_tujuan = 'Destination city is required.';
     if (!cargoData.jenis_barang.trim()) errors.jenis_barang = 'Cargo type is required.';
     if (!cargoData.berat_barang) errors.berat_barang = 'Weight is required.';
-    if (!cargoData.harga_tarif) errors.harga_tarif = 'Tariff price is required.';
+    if (!cargoData.harga_tarif) errors.harga_tarif = 'Price is required.';
 
     setCargoErrors(errors);
-
-    // Jika ada input kosong, batalkan pengiriman ke database
     if (Object.keys(errors).length > 0) return;
-
     if (editingId) {
-      await supabase.from('cargo').update({ ...cargoData }).eq('id', editingId);
+      await supabase
+        .from('cargo')
+        .update({
+          ...cargoData
+        })
+        .eq('id', editingId);
+
+      showToast(
+        'CARGO UPDATED', 'Cargo information has been updated successfully.');
     } else {
-      const newId = 'RESI-' + Math.floor(100000 + Math.random() * 900000);
-      await supabase.from('cargo').insert({ id: newId, ...cargoData });
+      const newId = 'TLS-' + Math.floor(100000 + Math.random() * 900000);
+      const { error } = await supabase
+        .from('cargo')
+        .insert({
+          id: newId,
+          ...cargoData
+        });
+
+      if (error) {
+        console.log(error);
+        alert(error.message);
+        return;
+      }
+      showToast('CARGO CREATED','Cargo data has been added successfully.'
+      );
     }
     closeModal();
     fetchCargo();
@@ -91,11 +104,16 @@ export default function CargoManagementComponent() {
     setShowModal(true);
   };
 
-  // FUNGSI BARU: Eksekusi hapus kargo dari modal custom
   const handleDeleteConfirm = async () => {
     if (!selectedCargo) return;
-    await supabase.from('cargo').delete().eq('id', selectedCargo.id);
+    await supabase
+      .from('cargo')
+      .delete()
+      .eq('id', selectedCargo.id);
     fetchCargo();
+    showToast(
+      'CARGO DELETED', 'Cargo data has been deleted successfully.'
+    );
     setShowDeleteModal(false);
     setSelectedCargo(null);
   };
@@ -106,8 +124,8 @@ export default function CargoManagementComponent() {
     setCargoData({
       tanggal_kirim: '', nama_pengirim: '', nama_penerima: '', no_telepon: '',
       kota_asal: '', kota_tujuan: '', jenis_barang: '', berat_barang: '',
-      harga_tarif: '', jenis_kendaraan: 'Truck', jenis_pengiriman: 'Biasa',
-      status_pengiriman: 'Diproses', deskripsi: ''
+      harga_tarif: '', jenis_kendaraan: 'Container Ship', jenis_pengiriman: 'Regular',
+      status_pengiriman: 'Processed', deskripsi: ''
     });
     setCargoErrors({});
   };
@@ -118,344 +136,364 @@ export default function CargoManagementComponent() {
     item.kota_tujuan?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     item.jenis_barang?.toLowerCase().includes(searchTerm.toLowerCase())
   );
-
-  // LOGIKA PAGINATION
   const totalPages = Math.ceil(filteredCargo.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedCargo = filteredCargo.slice(startIndex, startIndex + itemsPerPage);
 
   return (
-    <div className="p-6 bg-[#0c0a13] rounded-2xl border border-gray-800 animate-fade-in">
-      
-      {/* HEADER UTAMA */}
+    <div className="animate-fade-in text-white w-full font-sans">
+      {/*HEADER*/}
       <div className="flex justify-between items-center mb-8">
-        <h2 className="text-white text-xl font-bold font-mono tracking-widest uppercase border-l-4 border-purple-500 pl-4">
-          Cargo Management
-        </h2>
-        <button 
-          onClick={() => { setCargoErrors({}); setShowModal(true); }} 
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-xl bg-purple-600 flex items-center justify-center shadow-[0_0_20px_rgba(147,51,234,0.4)] flex-shrink-0">
+            <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+            </svg>
+          </div>
+          <div>
+            <h2 className="text-3xl font-bold tracking-wide">Cargo Management</h2>
+            <p className="text-gray-400 text-sm mt-1">Manage cargo logistics, specifications, and others</p>
+          </div>
+        </div>
+        <button
+          onClick={() => { setCargoErrors({}); setEditingId(null); setShowModal(true); }}
           className="bg-purple-600 px-6 py-3 rounded-xl text-white font-bold tracking-widest hover:bg-purple-500 transition-all"
         >
           + Add Cargo
         </button>
       </div>
 
-      {/* SEARCH BAR */}
-      <div className="flex items-center gap-3 mb-6">
-        <svg className="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-        </svg>
-        
-        <input
-          type="text"
-          placeholder="Search resi, sender, destination, or type..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full sm:w-72 bg-[#121016] border border-gray-800 rounded-xl px-4 py-2 text-white text-sm focus:outline-none focus:border-purple-500 transition-colors placeholder-gray-500 shadow-inner"
-        />
-      </div>
-
-      <div className="overflow-x-auto min-h-[400px] flex flex-col justify-between">
-        <div className="w-full">
-          {loading ? (
-            <div className="text-gray-500 text-center py-10">Loading...</div>
-          ) : cargoList.length === 0 ? (
-            <div className="text-gray-500 text-center py-10">Belum ada data cargo.</div>
-          ) : (
-            <table className="w-full text-left">
-              <thead>
-                <tr className="text-gray-500 text-[10px] uppercase tracking-widest border-b border-gray-800">
-                  <th className="pb-4">Resi</th><th className="pb-4">Pengirim</th>
-                  <th className="pb-4">Tujuan</th><th className="pb-4">Jenis</th>
-                  <th className="pb-4">Status</th><th className="pb-4 text-center">Aksi</th>
-                </tr>
-              </thead>
-              <tbody className="text-white text-sm">
-                {paginatedCargo.map((item) => (
-                  <tr key={item.id} className="border-b border-gray-800/50 hover:bg-white/5">
-                    <td className="py-4 font-mono text-purple-400">{item.id}</td>
-                    <td className="py-4">{item.nama_pengirim}</td>
-                    <td className="py-4">{item.kota_tujuan}</td>
-                    <td className="py-4">{item.jenis_barang}</td>
-                    <td className="py-4">
-                      <span className={`px-2 py-1 rounded-lg text-[10px] font-bold ${
-                        item.status_pengiriman === 'Diterima' ? 'bg-emerald-600/20 text-emerald-400' :
-                        item.status_pengiriman === 'Dikirim' ? 'bg-blue-600/20 text-blue-400' :
-                        'bg-yellow-600/20 text-yellow-400'
-                      }`}>{item.status_pengiriman}</span>
-                    </td>
-                    <td className="py-4 text-center flex justify-center items-center gap-2">
-                      <button onClick={() => setDetailItem(item)} className="p-2 rounded-lg bg-[#121016] border border-gray-800 hover:border-gray-600 text-gray-400 hover:text-purple-400 transition-colors" title="Detail Cargo">
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                        </svg>
-                      </button>
-                      <button onClick={() => handleEdit(item)} className="p-2 rounded-lg bg-[#121016] border border-gray-800 hover:border-gray-600 text-gray-400 hover:text-white transition-colors" title="Edit Cargo">
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                        </svg>
-                      </button>
-                      <button onClick={() => { setSelectedCargo(item); setShowDeleteModal(true); }} className="p-2 rounded-lg bg-[#121016] border border-gray-800 hover:border-red-500/50 hover:text-red-400 text-gray-400 transition-colors" title="Hapus Cargo">
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                {paginatedCargo.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="text-gray-500 text-center py-10 text-sm">
-                      Tidak ada data kargo yang cocok dengan pencarian.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          )}
-        </div>
-
-        {/* PAGINATION CONTROLS */}
-        {!loading && filteredCargo.length > 0 && (
-          <div className="flex flex-col sm:flex-row items-center justify-between p-5 border-t border-gray-800/60 bg-[#0d0a14] gap-4 sm:gap-0 text-sm text-gray-400 mt-6 rounded-xl">
-            <div className="text-xs sm:text-sm font-sans">
-              Showing{' '}
-              <span className="text-white font-medium">
-                {filteredCargo.length === 0 ? 0 : startIndex + 1}
-              </span>{' '}
-              to{' '}
-              <span className="text-white font-medium">
-                {Math.min(currentPage * itemsPerPage, filteredCargo.length)}
-              </span>{' '}
-              of <span className="text-white font-medium">{filteredCargo.length}</span> records
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                disabled={currentPage === 1}
-                className="px-3 py-1.5 rounded-xl bg-[#121016] border border-gray-800 hover:border-gray-600 text-gray-400 hover:text-white text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                Previous
-              </button>
-              
-              <div className="flex items-center gap-1 font-mono">
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                  <button
-                    key={page}
-                    type="button"
-                    onClick={() => setCurrentPage(page)}
-                    className={`px-3 py-1.5 rounded-xl border text-xs font-mono font-bold transition-colors ${
-                      currentPage === page
-                        ? 'bg-purple-500/20 border-purple-500 text-purple-300 shadow-[0_0_15px_rgba(147,51,234,0.15)]'
-                        : 'bg-[#121016] border-gray-800 hover:border-gray-600 text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    {page}
-                  </button>
-                ))}
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-                disabled={currentPage === totalPages || totalPages === 0}
-                className="px-3 py-1.5 rounded-xl bg-[#121016] border border-gray-800 hover:border-gray-600 text-gray-400 hover:text-white text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                Next
-              </button>
+      {/* TABLE CONTAINER*/}
+      <div className="bg-[#0b0a0e] border border-gray-800/60 rounded-2xl overflow-hidden">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-5 border-b border-gray-800/60 gap-4 sm:gap-0">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 w-full sm:w-auto">
+            <h3 className="text-xs font-bold tracking-widest text-purple-400 uppercase font-mono whitespace-nowrap">
+              System Cargo
+            </h3>
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              <svg className="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                type="text"
+                placeholder="Search receipt, sender, destination, or type..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full sm:w-87 bg-[#121016] border border-gray-800 rounded-xl px-4 py-2 text-white text-sm focus:outline-none focus:border-purple-500 transition-colors placeholder-gray-500 shadow-inner"
+              />
             </div>
           </div>
-        )}
+          <span className="text-xs text-gray-500 font-mono self-end sm:self-auto">
+            {filteredCargo.length} records
+          </span>
+        </div>
+        
+        <div className="overflow-x-auto min-h-[400px] flex flex-col justify-between">
+          <div className="w-full">
+            {loading ? (
+              <div className="text-gray-500 text-center py-10 font-mono text-sm">Loading...</div>
+            ) : cargoList.length === 0 ? (
+              <div className="text-gray-500 text-center py-10 font-mono text-sm">No cargo records found.</div>
+            ) : (
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-gray-800/60 text-[10px] font-bold tracking-widest text-purple-400 uppercase font-mono bg-[#0d0a14]">
+                    <th className="p-5">Receipt</th>
+                    <th className="p-5">Sender</th>
+                    <th className="p-5">Destination</th>
+                    <th className="p-5">Type</th>
+                    <th className="p-5">Status</th>
+                    <th className="p-5 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="text-white text-sm">
+                  {paginatedCargo.map((item) => (
+                    <tr key={item.id} className="border-b border-gray-800/40 hover:bg-[#12101a] transition-colors">
+                      <td className="p-5 font-mono text-sm text-purple-400">{item.id}</td>
+                      <td className="p-5 text-sm text-gray-200">{item.nama_pengirim}</td>
+                      <td className="p-5 text-sm text-gray-400">{item.kota_tujuan}</td>
+                      <td className="p-5 text-sm text-gray-400">{item.jenis_barang}</td>
+
+                      <td className="p-5">
+                        <span
+                          className={`px-3 py-1 rounded-full text-[10px] font-bold tracking-wider font-mono border ${
+                            item.status_pengiriman === 'Received'
+                              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                              : item.status_pengiriman === 'Shipped'
+                              ? 'bg-blue-500/10 text-blue-400 border-blue-500/30'
+                              : 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30'
+                          }`}
+                        >
+                          {item.status_pengiriman}
+                        </span>
+                      </td>
+
+                      <td className="p-5 text-right">
+                        <div className="flex justify-end gap-2">
+                          <button onClick={() => setDetailItem(item)} className="p-2 rounded-lg bg-[#121016] border border-gray-800 hover:border-gray-600 text-gray-400 hover:text-purple-400 transition-colors">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                          </button>
+                          <button onClick={() => handleEdit(item)} className="p-2 rounded-lg bg-[#121016] border border-gray-800 hover:border-gray-600 text-gray-400 hover:text-white transition-colors">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                            </svg>
+                          </button>
+                          <button onClick={() => { setSelectedCargo(item); setShowDeleteModal(true); }} className="p-2 rounded-lg bg-[#121016] border border-gray-800 hover:border-red-500/50 hover:text-red-400 text-gray-400 transition-colors">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* PAGINATION */}
+          {!loading && filteredCargo.length > 0 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between p-5 border-t border-gray-800/60 bg-[#0d0a14] gap-4 sm:gap-0 text-sm text-gray-400 mt-6 rounded-xl w-full">
+              <div className="text-xs sm:text-sm font-sans">
+                Showing <span className="text-white font-medium">{filteredCargo.length === 0 ? 0 : startIndex + 1}</span> to <span className="text-white font-medium">{Math.min(currentPage * itemsPerPage, filteredCargo.length)}</span> of <span className="text-white font-medium">{filteredCargo.length}</span> records
+              </div>
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))} disabled={currentPage === 1} className="px-3 py-1.5 rounded-xl bg-[#121016] border border-gray-800 hover:border-gray-600 text-gray-400 hover:text-white text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors">Previous</button>
+                <div className="flex items-center gap-1 font-mono">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <button key={page} type="button" onClick={() => setCurrentPage(page)} className={`px-3 py-1.5 rounded-xl border text-xs font-mono font-bold transition-colors ${currentPage === page ? 'bg-purple-500/20 border-purple-500 text-purple-300 shadow-[0_0_15px_rgba(147,51,234,0.15)]' : 'bg-[#121016] border-gray-800 hover:border-gray-600 text-gray-400 hover:text-white'}`}>{page}</button>
+                  ))}
+                </div>
+                <button type="button" onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages || totalPages === 0} className="px-3 py-1.5 rounded-xl bg-[#121016] border border-gray-800 hover:border-gray-600 text-gray-400 hover:text-white text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors">Next</button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* MODAL FORM: TAMBAH / EDIT CARGO */}
+      {/*MODAL*/}
       {showModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-[#0c0a13] border border-purple-500/30 rounded-2xl w-full max-w-2xl p-8 shadow-2xl relative max-h-[90vh] overflow-y-auto font-mono">
             <button onClick={closeModal} className="absolute top-6 right-6 text-gray-500 hover:text-white">✕</button>
-            <h2 className="text-white text-xl font-bold font-mono mb-6 uppercase border-l-4 border-purple-500 pl-4">{editingId ? "Edit Cargo" : "Tambah Cargo"}</h2>
-            
+            <h2 className="text-xl font-bold text-purple-400 mb-6">
+              {editingId ? "Edit Cargo" : "Add Cargo"}
+            </h2>
             <form className="grid grid-cols-1 md:grid-cols-2 gap-6" onSubmit={handleSubmit}>
               <div className="md:col-span-2">
-                <label className="text-[10px] text-gray-400 tracking-widest mb-2 block uppercase">Id Pengiriman / No Resi</label>
+                <label className="text-[10px] text-gray-400 tracking-widest mb-2 block uppercase">Shipment ID / Receipt No</label>
                 <input disabled value={editingId || "AUTO-GENERATED"} className="w-full bg-[#050505] border border-gray-800 rounded-xl p-4 text-gray-600 font-mono" />
               </div>
               
               {[
-                { label: 'Tanggal Kirim', key: 'tanggal_kirim', type: 'date' },
-                { label: 'Nama Pengirim', key: 'nama_pengirim', type: 'text' },
-                { label: 'Nama Penerima', key: 'nama_penerima', type: 'text' },
-                { label: 'No Telepon', key: 'no_telepon', type: 'text' },
-                { label: 'Kota Asal', key: 'kota_asal', type: 'text' },
-                { label: 'Kota Tujuan', key: 'kota_tujuan', type: 'text' },
-                { label: 'Jenis Barang', key: 'jenis_barang', type: 'text' },
-                { label: 'Berat Barang (Kg)', key: 'berat_barang', type: 'number' },
-                { label: 'Harga/Tarif', key: 'harga_tarif', type: 'number' },
+                { label: 'Shipping Date', key: 'tanggal_kirim', type: 'date' },
+                { label: 'Sender Name', key: 'nama_pengirim', type: 'text' },
+                { label: 'Recipient Name', key: 'nama_penerima', type: 'text' },
+                { label: 'Phone Number', key: 'no_telepon', type: 'text' },
+                { label: 'Origin City', key: 'kota_asal', type: 'text' },
+                { label: 'Destination City', key: 'kota_tujuan', type: 'text' },
+                { label: 'Cargo Type', key: 'jenis_barang', type: 'text' },
+                { label: 'Weight (Kg)', key: 'berat_barang', type: 'number' },
+                { label: 'Price', key: 'harga_tarif', type: 'number' },
               ].map(({ label, key, type }) => (
                 <div key={key}>
                   <label className="text-[10px] text-gray-400 tracking-widest mb-2 block uppercase">{label}</label>
-                  <input 
-                    type={type} 
+                  <input
+                    type={type}
                     value={(cargoData as any)[key]}
                     onChange={(e) => {
-                      setCargoData({...cargoData, [key]: e.target.value});
-                      setCargoErrors(p => ({...p, [key]: ''}));
+                      const value = e.target.value;
+
+                      if (key === 'no_telepon' && value && !/^\d*$/.test(value)) {
+                        setCargoErrors((prev) => ({
+                          ...prev,
+                          no_telepon: 'Phone number must contain digits only.'
+                        }));
+                        return;
+                      }
+
+                      setCargoData({
+                        ...cargoData,
+                        [key]: value
+                      });
+
+                      setCargoErrors((prev) => ({
+                        ...prev,
+                        [key]: ''
+                      }));
                     }}
-                    className={`w-full bg-[#050505] border rounded-xl p-4 text-white focus:outline-none transition-colors ${cargoErrors[key] ? 'border-red-500' : 'border-gray-800 focus:border-purple-500'}`} 
+                    className={`w-full bg-[#121016] border rounded-xl p-3 text-white text-sm focus:outline-none transition-colors ${
+                      cargoErrors[key]
+                        ? 'border-red-500'
+                        : 'border-gray-800 focus:border-purple-500'
+                    }`}
                   />
                   {cargoErrors[key] && <p className="text-red-400 text-[10px] mt-1.5 tracking-widest font-mono uppercase">{cargoErrors[key]}</p>}
                 </div>
               ))}
-              
               {[
-                { label: 'Jenis Kendaraan', key: 'jenis_kendaraan', options: ['Truck', 'Pick-up', 'Kontainer'] },
-                { label: 'Jenis Pengiriman', key: 'jenis_pengiriman', options: ['Biasa', 'Cepat', 'Vvip'] },
-                { label: 'Status', key: 'status_pengiriman', options: ['Diproses', 'Dikirim', 'Diterima'] },
+                { label: 'Vehicle Type', key: 'jenis_kendaraan', options: ['Container Ship', 'Bulk Carrier', 'Tanker'] },
+                { label: 'Shipment Type', key: 'jenis_pengiriman', options: ['Regular', 'Express', 'VVIP'] },
+                { label: 'Status', key: 'status_pengiriman', options: ['Processed', 'Shipped', 'Received'] },
               ].map(({ label, key, options }) => (
                 <div key={key}>
                   <label className="text-[10px] text-gray-400 tracking-widest mb-2 block uppercase">{label}</label>
                   <select value={(cargoData as any)[key]}
                     onChange={(e) => setCargoData({...cargoData, [key]: e.target.value})}
-                    className="w-full bg-[#050505] border border-gray-800 rounded-xl p-4 text-white focus:outline-none focus:border-purple-500">
-                    {options.map(o => <option key={o} className="bg-[#0c0a13]">{o}</option>)}
+                    className="w-full bg-[#121016] border border-gray-800 rounded-xl p-3 text-white text-sm focus:outline-none focus:border-purple-500">
+                    {options.map(o => <option key={o} value={o} className="bg-[#0c0a13]" >{o}</option>)}
                   </select>
                 </div>
               ))}
               <div className="md:col-span-2">
-                <label className="text-[10px] text-gray-400 tracking-widest mb-2 block uppercase">Deskripsi Barang</label>
+                <label className="text-[10px] text-gray-400 tracking-widest mb-2 block uppercase">Cargo Description</label>
                 <textarea value={cargoData.deskripsi}
                   onChange={(e) => setCargoData({...cargoData, deskripsi: e.target.value})}
-                  className="w-full bg-[#050505] border border-gray-800 rounded-xl p-4 text-white h-24 focus:outline-none focus:border-purple-500" />
+                  className="w-full bg-[#121016] border border-gray-800 rounded-xl p-3 text-white text-sm h-24 focus:outline-none focus:border-purple-500" />
               </div>
-              <div className="md:col-span-2 flex justify-end gap-4 mt-4">
-                <button type="button" onClick={closeModal} className="px-8 py-4 rounded-xl border border-gray-800 text-gray-400 hover:text-white transition-colors">Cancel</button>
-                <button type="submit" className="px-8 py-4 rounded-xl bg-purple-600 text-white font-bold hover:bg-purple-500 transition-colors">{editingId ? "UPDATE CARGO" : "SUBMIT CARGO"}</button>
+              <div className="md:col-span-2 flex justify-end gap-3 mt-4">
+                <button type="button" onClick={closeModal} className="px-6 py-3 rounded-xl bg-[#2a2b36] text-white text-sm">Cancel</button>
+                <button type="submit" className="px-6 py-3.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm transition-all shadow-[0_0_15px_rgba(147,51,234,0.3)]">
+                  {editingId ? "Save Changes" : "Add Cargo"}
+                </button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* MODAL VIEW DETAILS */}
       {detailItem && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#0c0a13] border border-gray-800 rounded-2xl w-full max-w-2xl p-8 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+          <div className="bg-[#0c0a13] border border-gray-800 rounded-2xl w-full max-w-2xl p-8 shadow-2xl relative max-h-[90vh] overflow-y-auto font-mono">
             <button onClick={() => setDetailItem(null)} className="absolute top-6 right-6 text-gray-500 hover:text-white transition-colors">✕</button>
-            <h2 className="text-white text-xl font-bold font-mono mb-6 uppercase border-l-4 border-purple-500 pl-4">Detail Pengiriman</h2>
+            <h2 className="text-xl font-bold text-purple-400 mb-6">Shipment Details</h2>
             <div className="flex flex-wrap items-center justify-between gap-4 bg-[#121016] border border-gray-800/60 p-4 rounded-xl mb-6">
               <div>
-                <span className="text-[10px] text-gray-500 uppercase block">No. Resi Pengiriman</span>
+                <span className="text-[10px] text-gray-500 uppercase block">Receipt No / Shipment ID</span>
                 <span className="text-purple-400 font-mono font-bold text-lg">{detailItem.id}</span>
               </div>
               <div>
-                <span className="text-[10px] text-gray-500 uppercase block mb-1 text-right sm:text-left">Status Kargo</span>
-                <span className={`px-3 py-1 rounded-lg text-xs font-bold ${detailItem.status_pengiriman === 'Diterima' ? 'bg-emerald-600/20 text-emerald-400' : detailItem.status_pengiriman === 'Dikirim' ? 'bg-blue-600/20 text-blue-400' : 'bg-yellow-600/20 text-yellow-400'}`}>{detailItem.status_pengiriman}</span>
+                <span
+                  className={`px-3 py-1 rounded-full text-[10px] font-bold tracking-wider font-mono border ${
+                    detailItem.status_pengiriman === 'Received'
+                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                      : detailItem.status_pengiriman === 'Shipped'
+                      ? 'bg-blue-500/10 text-blue-400 border-blue-500/30'
+                      : 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30'
+                  }`}
+                >
+                  {detailItem.status_pengiriman}
+                </span>
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 items-center gap-4 bg-[#050505] border border-gray-800 p-4 rounded-xl mb-6 text-center sm:text-left">
               <div>
-                <span className="text-[10px] text-gray-500 uppercase block">Kota Asal</span>
+                <span className="text-[10px] text-gray-500 uppercase block">Origin City</span>
                 <span className="text-white font-bold text-base">{detailItem.kota_asal}</span>
               </div>
               <div className="flex flex-col items-center justify-center text-purple-500">
-                <span className="text-[10px] text-gray-600 uppercase">Rute</span>
+                <span className="text-[10px] text-gray-600 uppercase">Route</span>
                 <svg className="w-6 h-6 hidden sm:block" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
                 </svg>
                 <span className="sm:hidden font-bold">↓</span>
               </div>
               <div className="sm:text-right">
-                <span className="text-[10px] text-gray-500 uppercase block">Kota Tujuan</span>
+                <span className="text-[10px] text-gray-500 uppercase block">Destination City</span>
                 <span className="text-white font-bold text-base">{detailItem.kota_tujuan}</span>
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-[#121016] border border-gray-800 p-6 rounded-xl mb-6">
               <div>
-                <h4 className="text-xs font-bold text-purple-400 uppercase tracking-wider mb-3 border-b border-gray-800 pb-1">Data Pengirim</h4>
+                <h4 className="text-xs font-bold text-purple-400 uppercase tracking-wider mb-3 border-b border-gray-800 pb-1">Sender Information</h4>
                 <div className="space-y-2 text-sm">
-                  <p><span className="text-gray-500">Nama:</span> <span className="text-white font-medium">{detailItem.nama_pengirim}</span></p>
-                  <p><span className="text-gray-500">Tanggal Kirim:</span> <span className="text-white font-mono">{detailItem.tanggal_kirim}</span></p>
+                  <p><span className="text-gray-500">Name:</span> <span className="text-white font-medium">{detailItem.nama_pengirim}</span></p>
+                  <p><span className="text-gray-500">Shipping Date:</span> <span className="text-white font-mono">{detailItem.tanggal_kirim}</span></p>
                 </div>
               </div>
               <div>
-                <h4 className="text-xs font-bold text-purple-400 uppercase tracking-wider mb-3 border-b border-gray-800 pb-1">Data Penerima</h4>
+                <h4 className="text-xs font-bold text-purple-400 uppercase tracking-wider mb-3 border-b border-gray-800 pb-1">Recipient Information</h4>
                 <div className="space-y-2 text-sm">
-                  <p><span className="text-gray-500">Nama:</span> <span className="text-white font-medium">{detailItem.nama_penerima}</span></p>
-                  <p><span className="text-gray-500">No. Telepon:</span> <span className="text-white font-mono">{detailItem.no_telepon}</span></p>
+                  <p><span className="text-gray-500">Name:</span> <span className="text-white font-medium">{detailItem.nama_penerima}</span></p>
+                  <p><span className="text-gray-500">Phone Number:</span> <span className="text-white font-mono">{detailItem.no_telepon}</span></p>
                 </div>
               </div>
             </div>
             <div className="bg-[#050505] border border-gray-800 rounded-xl p-6 mb-6">
-              <h4 className="text-xs font-bold text-purple-400 uppercase tracking-wider mb-4 border-b border-gray-800 pb-1">Spesifikasi & Logistik</h4>
+              <h4 className="text-xs font-bold text-purple-400 uppercase tracking-wider mb-4 border-b border-gray-800 pb-1">Specifications & Logistics</h4>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-6 text-sm">
                 <div>
-                  <span className="text-gray-500 block text-[10px] uppercase">Jenis Barang</span>
+                  <span className="text-gray-500 block text-[10px] uppercase">Cargo Type</span>
                   <span className="text-white font-medium">{detailItem.jenis_barang}</span>
                 </div>
                 <div>
-                  <span className="text-gray-500 block text-[10px] uppercase">Berat Barang</span>
+                  <span className="text-gray-500 block text-[10px] uppercase">Weight</span>
                   <span className="text-white font-medium">{detailItem.berat_barang} Kg</span>
                 </div>
                 <div>
-                  <span className="text-gray-500 block text-[10px] uppercase">Jenis Kendaraan</span>
+                  <span className="text-gray-500 block text-[10px] uppercase">Vehicle Type</span>
                   <span className="text-white font-medium">{detailItem.jenis_kendaraan}</span>
                 </div>
                 <div>
-                  <span className="text-gray-500 block text-[10px] uppercase">Jenis Pengiriman</span>
+                  <span className="text-gray-500 block text-[10px] uppercase">Shipment Type</span>
                   <span className="text-white font-medium">{detailItem.jenis_pengiriman}</span>
                 </div>
                 <div className="col-span-2 sm:col-span-2">
-                  <span className="text-gray-500 block text-[10px] uppercase">Harga / Tarif</span>
+                  <span className="text-gray-500 block text-[10px] uppercase">Price</span>
                   <span className="text-emerald-400 font-bold text-base">Rp {Number(detailItem.harga_tarif).toLocaleString('id-ID')}</span>
                 </div>
               </div>
             </div>
             <div className="bg-[#121016] border border-gray-800 rounded-xl p-4 mb-6">
-              <span className="text-[10px] text-gray-500 uppercase block mb-1">Deskripsi Barang</span>
-              <p className="text-gray-300 text-sm whitespace-pre-wrap leading-relaxed">{detailItem.deskripsi || <span className="text-gray-600 italic">Tidak ada deskripsi barang.</span>}</p>
+              <span className="text-[10px] text-gray-500 uppercase block mb-1">Cargo Description</span>
+              <p className="text-gray-300 text-sm whitespace-pre-wrap leading-relaxed">{detailItem.deskripsi || <span className="text-gray-600 italic">No description provided.</span>}</p>
             </div>
             <div className="flex justify-end">
-              <button type="button" onClick={() => setDetailItem(null)} className="px-6 py-3 rounded-xl bg-gray-800 text-white font-bold hover:bg-gray-700 transition-colors text-sm">Tutup Detail</button>
+              <button type="button" onClick={() => setDetailItem(null)} className="px-6 py-3 rounded-xl bg-gray-800 text-white font-bold hover:bg-gray-700 transition-colors text-sm">Close Details</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* MODAL BARU: CUSTOM CONFIRM DELETE BERBAHASA INGGRIS (Sesuai Gambar 3) */}
+      {/* DELETE MODAL */}
       {showDeleteModal && selectedCargo && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-[#0b0a0e] border border-red-500/30 rounded-2xl w-full max-w-md p-6 shadow-[0_0_40px_rgba(239,68,68,0.15)] relative font-mono animate-fade-in">
-            <button 
-              onClick={() => { setShowDeleteModal(false); setSelectedCargo(null); }} 
-              className="absolute top-6 right-6 text-gray-500 hover:text-white transition-colors"
-            >
-              ✕
-            </button>
+            <button onClick={() => { setShowDeleteModal(false); setSelectedCargo(null); }} className="absolute top-6 right-6 text-gray-500 hover:text-white transition-colors">✕</button>
             <h2 className="text-xl font-bold text-red-400 mb-4">Confirm Delete</h2>
-            <p className="text-gray-300 text-sm mb-8">
-              Delete cargo data with Resi <span className="text-white font-bold font-mono">{selectedCargo.id}</span>? This action cannot be undone.
-            </p>
+            <p className="text-gray-300 text-sm mb-8">Delete cargo data with Receipt <span className="text-white font-bold font-mono">{selectedCargo.id}</span>? This action cannot be undone.</p>
             <div className="flex gap-3">
-              <button 
-                onClick={() => { setShowDeleteModal(false); setSelectedCargo(null); }} 
-                className="flex-1 py-3 rounded-xl bg-[#2a2b36] text-white text-sm hover:bg-[#343544] transition-colors"
-              >
-                Cancel
-              </button>
-              <button 
-                onClick={handleDeleteConfirm} 
-                className="flex-1 py-3 rounded-xl bg-[#dc2626] hover:bg-[#b91c1c] text-white font-medium text-sm shadow-[0_0_15px_rgba(220,38,38,0.2)] transition-colors"
-              >
-                Delete
-              </button>
+              <button onClick={() => { setShowDeleteModal(false); setSelectedCargo(null); }} className="flex-1 py-3 rounded-xl bg-[#2a2b36] text-white text-sm hover:bg-[#343544] transition-colors">Cancel</button>
+              <button onClick={handleDeleteConfirm} className="flex-1 py-3 rounded-xl bg-[#dc2626] hover:bg-[#b91c1c] text-white font-medium text-sm shadow-[0_0_15px_rgba(220,38,38,0.2)] transition-colors">Delete</button>
             </div>
           </div>
         </div>
       )}
-
+      {/* TOAST NOTIFICATION */}
+      {toast.show && (
+        <div className="fixed bottom-6 right-6 z-[999] bg-[#0b0a0e] border border-purple-500/30 rounded-2xl px-5 py-4 min-w-[340px] shadow-[0_0_30px_rgba(147,51,234,0.2)] animate-fade-in">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center">
+              <svg className="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"
+                />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-purple-400 text-[11px] uppercase tracking-[0.25em] font-mono font-bold">
+                {toast.title}
+              </h3>
+              <p className="text-gray-300 text-sm mt-1">
+                {toast.message}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

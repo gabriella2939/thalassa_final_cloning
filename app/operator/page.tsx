@@ -80,17 +80,15 @@ export default function OperatorPage() {
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const supabase = createClient();
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        router.push('/login');
-      } else {
-        setIsCheckingAuth(false);
-      }
-    };
-    checkAuth();
-  }, [router, supabase]);
+useEffect(() => {
+  const user = localStorage.getItem("user");
+
+  if (!user) {
+    router.push("/login");
+  } else {
+    setIsCheckingAuth(false);
+  }
+}, [router]);
 
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
 

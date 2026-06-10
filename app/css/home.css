@@ -1,5 +1,11 @@
 @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&display=swap');
-*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
 body {
   font-family: 'Roboto Mono', monospace;
   background: #0a0a0f;
@@ -21,16 +27,44 @@ body {
   top: 0;
   z-index: 50;
 }
-.navbar-brand { display: flex; align-items: center; gap: 12px; }
-.brand-logo-img { width: 40px; height: 40px; border-radius: 50%; }
-.brand-text { display: flex; flex-direction: column; gap: 2px; }
-.brand-name { font-weight: 700; font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; }
-.brand-sub { font-size: 10px; color: #8B5CF6; letter-spacing: 0.1em; text-transform: uppercase; }
+
+.navbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand-logo-img {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+}
+
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.brand-name {
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.brand-sub {
+  font-size: 10px;
+  color: #8B5CF6;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
 
 .navbar-links {
   display: flex;
   gap: 30px;
 }
+
 .navbar-links a {
   text-decoration: none;
   color: rgba(255,255,255,0.6);
@@ -39,7 +73,9 @@ body {
   letter-spacing: 0.1em;
   transition: color 0.3s;
 }
-.navbar-links a:hover, .navbar-links a.active {
+
+.navbar-links a:hover,
+.navbar-links a.active {
   color: #ffffff;
 }
 
@@ -54,29 +90,39 @@ body {
   letter-spacing: 0.1em;
   transition: background 0.3s;
 }
+
 .btn-login-outline:hover {
   background: rgba(139,92,246,0.2);
 }
 
+/* HOME PAGE */
 .page-container {
   padding: 60px 80px;
-  min-height: calc(100vh - 71px); 
+  min-height: calc(100vh - 71px);
   position: relative;
 }
 
 .home-bg {
   position: absolute;
-  top: 0; left: 0; width: 100%; height: 100%;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
   z-index: -2;
   opacity: 0.4;
 }
+
 .home-overlay {
   position: absolute;
-  top: 0; left: 0; width: 100%; height: 100%;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
   background: rgba(18, 5, 38, 0.7);
   z-index: -1;
 }
+
 .home-content {
   display: flex;
   flex-direction: column;
@@ -84,8 +130,10 @@ body {
   justify-content: center;
   text-align: center;
   height: calc(100vh - 71px);
-  padding-top: 50px;
+  padding-top: 0;
+  transform: translateY(-16px);
 }
+
 .pill-badge {
   border: 1px solid rgba(167,139,250,0.4);
   border-radius: 40px;
@@ -96,6 +144,7 @@ body {
   margin-bottom: 40px;
   background: rgba(167,139,250,0.05);
 }
+
 .home-logo {
   width: 110px;
   height: 110px;
@@ -104,6 +153,7 @@ body {
   margin-bottom: 24px;
   box-shadow: 0 0 40px rgba(167,139,250,0.4);
 }
+
 .home-title {
   font-size: clamp(40px, 4vw, 70px);
   font-weight: 600;
@@ -112,6 +162,7 @@ body {
   text-shadow: 0 0 22px rgba(255, 255, 255, 0.08);
   line-height: 0.95;
 }
+
 .home-title-purple {
   margin-top: 12px;
   font-size: clamp(40px, 4vw, 70px);
@@ -121,22 +172,25 @@ body {
   text-shadow:
     0 0 10px rgba(182, 73, 255, 0.6),
     0 0 28px rgba(182, 73, 255, 0.45);
-  margin-bottom: 40px;
+  margin-bottom: 24px;
 }
+
 .home-subtitle {
-  margin-top: 18px;
+  margin-top: 0;
   font-size: clamp(14px, 1vw, 20px);
   font-weight: 700;
   letter-spacing: 2.4px;
   color: #f3ecff;
 }
+
 .home-desc {
   margin-top: 8px;
   font-size: 12px;
   letter-spacing: 1.3px;
   color: rgba(226, 216, 255, 0.58);
-  margin-bottom: 40px;
+  margin-bottom: 28px;
 }
+
 .btn-track {
   background: #a855f7;
   color: #000;
@@ -153,6 +207,7 @@ body {
   box-shadow: 0 0 25px rgba(168,85,247,0.5);
   transition: transform 0.2s, box-shadow 0.2s;
 }
+
 .btn-track:hover {
   transform: translateY(-2px);
   box-shadow: 0 0 35px rgba(168,85,247,0.7);
@@ -163,6 +218,7 @@ body {
   margin-bottom: 40px;
   position: relative;
 }
+
 .page-title {
   font-size: 24px;
   font-weight: 700;
@@ -171,6 +227,7 @@ body {
   display: flex;
   align-items: center;
 }
+
 .page-title::before {
   content: '';
   display: inline-block;
@@ -179,23 +236,27 @@ body {
   background: #8B5CF6;
   margin-right: 12px;
 }
+
 .page-subtitle {
   font-size: 11px;
   color: rgba(255,255,255,0.4);
   letter-spacing: 0.15em;
   margin-left: 16px;
 }
+
 .services-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 20px;
 }
+
 .service-card {
   background: rgba(255,255,255,0.02);
   border: 1px solid rgba(255,255,255,0.05);
   border-radius: 12px;
   padding: 30px;
 }
+
 .service-icon {
   width: 40px;
   height: 40px;
@@ -208,12 +269,14 @@ body {
   margin-bottom: 20px;
   background: rgba(139,92,246,0.05);
 }
+
 .service-title {
   font-size: 16px;
   font-weight: 700;
   letter-spacing: 0.05em;
   margin-bottom: 12px;
 }
+
 .service-desc {
   font-size: 13px;
   color: rgba(255,255,255,0.5);
@@ -230,9 +293,11 @@ body {
   border-radius: 12px;
   padding: 40px;
 }
+
 .stat-box {
   text-align: center;
 }
+
 .stat-value {
   font-size: 48px;
   font-weight: 700;
@@ -240,15 +305,18 @@ body {
   text-shadow: 0 0 20px rgba(167,139,250,0.5);
   margin-bottom: 10px;
 }
+
 .stat-label {
   font-size: 11px;
   letter-spacing: 0.1em;
   color: rgba(255,255,255,0.6);
 }
+
 .fleet-center-text {
   text-align: center;
   margin-bottom: 50px;
 }
+
 .fleet-center-title {
   font-size: 20px;
   font-weight: 700;
@@ -259,6 +327,7 @@ body {
   margin-right: auto;
   line-height: 1.4;
 }
+
 .fleet-center-desc {
   font-size: 13px;
   color: rgba(255,255,255,0.5);
@@ -266,11 +335,13 @@ body {
   margin: 0 auto;
   line-height: 1.6;
 }
+
 .fleet-features {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   gap: 20px;
 }
+
 .fleet-feature-card {
   background: rgba(255,255,255,0.02);
   border: 1px solid rgba(255,255,255,0.05);
@@ -281,16 +352,19 @@ body {
   flex-direction: column;
   align-items: center;
 }
+
 .ff-icon {
   font-size: 24px;
   margin-bottom: 15px;
 }
+
 .ff-title {
   font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.1em;
   margin-bottom: 10px;
 }
+
 .ff-desc {
   font-size: 11px;
   color: rgba(255,255,255,0.4);
@@ -304,31 +378,37 @@ body {
   gap: 50px;
   align-items: center;
 }
+
 .contact-title {
   font-size: 40px;
   font-weight: 700;
   letter-spacing: 0.1em;
   margin-bottom: 10px;
 }
+
 .contact-subtitle {
   font-size: 18px;
   font-weight: 700;
   letter-spacing: 0.2em;
   margin-bottom: 50px;
 }
+
 .contact-list {
   display: flex;
   flex-direction: column;
   gap: 30px;
 }
+
 .contact-item {
   display: flex;
   gap: 15px;
 }
+
 .contact-icon {
   font-size: 16px;
   padding-top: 2px;
 }
+
 .contact-info-label {
   font-size: 10px;
   color: rgba(255,255,255,0.4);
@@ -336,14 +416,33 @@ body {
   margin-bottom: 5px;
   text-transform: uppercase;
 }
+
 .contact-info-value {
   font-size: 13px;
   color: rgba(255,255,255,0.9);
   line-height: 1.5;
 }
+
 .contact-image {
   width: 100%;
   height: 450px;
   object-fit: cover;
   border-radius: 20px;
+}
+
+/* FIX JARAK TITLE HOME */
+.home-title-purple {
+  margin-top: 12px !important;
+  margin-bottom: 28px !important;
+  line-height: 1.05 !important;
+}
+
+.home-subtitle {
+  margin-top: 0 !important;
+  margin-bottom: 10px !important;
+}
+
+.home-desc {
+  margin-top: 6px !important;
+  margin-bottom: 30px !important;
 }
